@@ -1,0 +1,162 @@
+---
+title: "LBen Algoritmos de Agrupación"
+author: "luisfflorezg"
+format: 
+  html:
+    code-fold: true  # Permite ocultar o mostrar código
+    code-summary: "Mostrar código"  # Texto del botón de despliegue
+editor: visual
+execute: 
+  echo: true  # Permite mostrar/ocultar código
+  warning: false  # Oculta warnings
+  message: false  # Oculta mensajes
+  error: false  # Evita mostrar errores en el documento
+  
+toc: true
+toc-title: "Contenido"
+toc-depth: 3
+number-sections: true
+---
+
+## Carga de Librerias
+
+```{r}
+library(readr)
+library(dplyr)
+library(lubridate)
+library(DT)
+library(ggplot2)
+library(tidyr)
+library(factoextra)
+library(cluster)
+library(dbscan)
+library(openxlsx)
+library(car)
+library(ggpubr)
+library(FSA)
+library(tidyverse)
+library(e1071)
+
+```
+
+## Cargar Datos Iniciales
+
+```{r}
+  
+cargar_datos <- function(archivo) {
+  datos <- read_delim(archivo, delim = ";", col_types = cols(.default = "c"), locale = locale(decimal_mark = ".", grouping_mark = ","), trim_ws = TRUE)
+  colnames(datos) <- trimws(colnames(datos))
+  if (!all(c("fecha_hora", "consumo") %in% colnames(datos))) {
+    stop("El archivo debe contener las columnas 'fecha_hora' y 'consumo'")
+  }
+  datos <- datos %>%
+    mutate(
+      fecha_hora = dmy_hm(fecha_hora),
+      consumo = as.numeric(consumo),
+      año = as.integer(year(fecha_hora)),
+      mes = month(fecha_hora, label = TRUE, abbr = TRUE),
+      dia = day(fecha_hora),
+      dia_sem = wday(fecha_hora, label = TRUE, abbr = FALSE, week_start = 1),
+      hora = hour(fecha_hora)
+    ) %>%
+    select(fecha_hora, año, mes, dia, dia_sem, hora, consumo)
+  return(datos)
+}
+
+ruta <- "www/CEDIBOMBONA.csv"
+datos_preparados <- cargar_datos(ruta)
+datatable( head (datos_preparados, 10) )
+```
+
+## Descripcion del dataset Datos Iniciales
+
+En nuestro caso el formato sep ";" es el que se está generando desde las fuentes de información
+
+```{r}
+describir_datos <- function(datos) {
+  resumen <- datos %>%
+    summarise(
+      Variable = names(.),
+      Tipo = sapply(., class),
+      Registros = n(),
+      Valores_Unicos = sapply(., function(x) length(unique(x))),
+      Valores_Faltantes = sapply(., function(x) sum(is.na(x)))
+    ) %>%
+    as.data.frame()
+  datatable(resumen, options = list(pageLength = 10, scrollX = TRUE))
+}
+
+describir_datos(datos_preparados)
+```
+
+## Limpieza del Dataset Datos Iniciales
+
+Eliminación de datos faltantes
+
+```{r}
+limpiar_datos <- function(datos) {
+  datos_limpiados <- datos %>%
+    select(-fecha_hora) %>%
+    na.omit()
+  return(datos_limpiados)
+}
+
+datos_limpiados <- limpiar_datos(datos_preparados)
+
+describir_datos(datos_limpiados)
+
+datatable( head(datos_limpiados) )
+```
+
+## Analisis Exploratorio de Datos Iniciales
+
+Graficos de distribicion de frecuencia con el objeto de identificar que los datos esten balanceados.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(DT)
+
+
+
+# Función para graficar distribuciones de frecuencia de cada variable y generar tablas de frecuencias
+graficar_y_tabular_frecuencias <- function(datos) {
+  graficos <- list()
+  tablas_frecuencia <- list()
+  
+  for (col in colnames(datos)) {
+    # Crear gráfico de distribución de frecuencia
+    p <- ggplot(datos, aes_string(x = col)) +
+      geom_bar(fill = "steelblue", color = "black") +
+      theme_minimal() +
+      labs(title = paste("Distribución de", col), x = col, y = "Frecuencia") +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    graficos[[col]] <- p
+    print(p)  # Mostrar el gráfico
+    
+    # Crear tabla de distribución de frecuencia
+    tabla <- datos %>%
+      count(!!sym(col)) %>%
+      rename(Frecuencia = n)
+    
+    # Convertir la tabla a formato datatable
+    tabla_dt <- datatable(tabla, options = list(pageLength = 10, scrollX = TRUE))
+    
+    tablas_frecuencia[[col]] <- tabla_dt
+    print(tabla_dt)  # Mostrar la tabla en formato DT
+  }
+  
+  return(list(graficos = graficos, tablas = tablas_frecuencia))  # Devuelve listas con los gráficos y tablas
+}
+
+# Aplicar la función al dataset limpiado
+resultados_frecuencia <- graficar_y_tabular_frecuencias(datos_limpiados)
+
+
+```
+
+```{r}
+
+```

@@ -18,7 +18,13 @@ toc-depth: 3
 number-sections: true
 ---
 
+## Resumen
+
+Descripcion del analisis
+
 ## Carga de Librerias
+
+Listado de librerias utilizadas
 
 ```{r}
 library(readr)
@@ -40,6 +46,8 @@ library(e1071)
 ```
 
 ## Cargar Datos Iniciales
+
+En nuestro caso el formato csv - sep ";" es el que se está generando desde las fuentes primarias de información
 
 ```{r}
   
@@ -63,14 +71,14 @@ cargar_datos <- function(archivo) {
   return(datos)
 }
 
-ruta <- "www/CEDIBOMBONA.csv"
+ruta <- "www/caso1.csv"
 datos_preparados <- cargar_datos(ruta)
 datatable( head (datos_preparados, 10) )
 ```
 
 ## Descripcion del dataset Datos Iniciales
 
-En nuestro caso el formato sep ";" es el que se está generando desde las fuentes de información
+Verificacion de la disponibilidad y formato de las variables requeridas para el analisis
 
 ```{r}
 describir_datos <- function(datos) {
@@ -93,6 +101,8 @@ describir_datos(datos_preparados)
 
 Eliminación de datos faltantes
 
+Debido a que no se utilizaran algoritmos que requieran conservar la forma de la serie de datos, es posible eliminar los registros faltantes.
+
 ```{r}
 limpiar_datos <- function(datos) {
   datos_limpiados <- datos %>%
@@ -105,58 +115,792 @@ datos_limpiados <- limpiar_datos(datos_preparados)
 
 describir_datos(datos_limpiados)
 
-datatable( head(datos_limpiados) )
+# datatable( head(datos_limpiados) )
 ```
 
 ## Analisis Exploratorio de Datos Iniciales
 
-Graficos de distribicion de frecuencia con el objeto de identificar que los datos esten balanceados.
+### Graficos de distribicion de frecuencia
+
+Para la metodologia es deseable pero no es necesario que los datos esten balanceados, se requiere la presencia de la mayor cantidad de escenarios posibles (todos los dias y todas las horas), para darle sentido a los grupos que se obtendran mas adelante, la influencia del mes puede ser significativa en caso de que existan patrones de largo plazo (estaciones climaticas, operaciones temporales, entre otros), en los casos de estudio tenemos menos de un año de datos.
+
+```{r}
+library(ggplot2)
+library(patchwork)
+
+graficar_distribuciones <- function(datos, titulo_size = 16, eje_size = 12) {
+  # Gráfico de distribución de meses
+  p1 <- ggplot(datos, aes(x = mes)) +
+    geom_bar(fill = "steelblue", color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(title = "Distribución por Mes", x = "Mes", y = "Frecuencia") +
+    theme(
+      plot.title = element_text(size = titulo_size, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = eje_size),
+      axis.text.y = element_text(size = eje_size),
+      axis.title.x = element_text(size = eje_size),
+      axis.title.y = element_text(size = eje_size)
+    )
+
+  # Gráfico de distribución de días de la semana
+  p2 <- ggplot(datos, aes(x = dia_sem)) +
+    geom_bar(fill = "darkgreen", color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(title = "Distribución por Día de la Semana", x = "Día", y = "Frecuencia") +
+    theme(
+      plot.title = element_text(size = titulo_size, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = eje_size),
+      axis.text.y = element_text(size = eje_size),
+      axis.title.x = element_text(size = eje_size),
+      axis.title.y = element_text(size = eje_size)
+    )
+
+  # Gráfico de distribución de horas
+  p3 <- ggplot(datos, aes(x = factor(hora))) +
+    geom_bar(fill = "darkred", color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(title = "Distribución por Hora", x = "Hora", y = "Frecuencia")+
+    theme(
+      plot.title = element_text(size = titulo_size, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+      axis.text.y = element_text(size = eje_size),
+      axis.title.x = element_text(size = eje_size),
+      axis.title.y = element_text(size = eje_size)
+    )
+
+  # Ajustar el diseño para evitar superposición
+  p1 + p2 + p3 + plot_layout(ncol = 3, guides = "collect") & theme(plot.margin = margin(10, 10, 10, 0))
+}
+
+# Llamada a la función
+graficar_distribuciones(datos_limpiados, titulo_size = 9, eje_size = 9)
+
+```
+
+### Tablas de distribución de frecuencias de las variables
+
+```{r}
+library(dplyr)
+
+generar_tablas_frecuencia <- function(datos) {
+  # Función auxiliar para calcular la frecuencia absoluta y relativa
+  calcular_frecuencia <- function(variable, nombre_variable) {
+    tabla <- datos %>%
+      count({{ variable }}) %>%
+      mutate(
+        Frecuencia_Relativa = n / sum(n),
+        Porcentaje = round(Frecuencia_Relativa * 100, 2)
+      ) %>%
+      rename(Valor = {{ variable }}, Frecuencia_Absoluta = n) %>%
+      arrange(Valor)
+    
+    return(tabla)
+  }
+  
+  # Generar las tablas para cada variable
+  tabla_mes <- calcular_frecuencia(mes, "Mes")
+  tabla_dia_sem <- calcular_frecuencia(dia_sem, "Día de la Semana")
+  tabla_hora <- calcular_frecuencia(hora, "Hora")
+
+  # Retornar las tablas en una lista
+  return(list(
+    Tabla_Mes = tabla_mes,
+    Tabla_Dia_Semana = tabla_dia_sem,
+    Tabla_Hora = tabla_hora
+  ))
+}
+
+# Llamada a la función
+tablas_frecuencia <- generar_tablas_frecuencia(datos_limpiados)
+
+# Mostrar las tablas
+datatable( tablas_frecuencia$Tabla_Mes )
+datatable( tablas_frecuencia$Tabla_Dia_Semana )
+datatable( tablas_frecuencia$Tabla_Hora )
+
+
+```
+
+### Magnitudes de la variable CONSUMO
+
+```{r}
+library(dplyr)
+library(moments)  # Para curtosis y asimetría
+
+analisis_exploratorio_consumo <- function(datos) {
+  resumen <- datos %>%
+    summarise(
+      Minimo = round(min(consumo, na.rm = TRUE), 2),
+      Q1 = round(quantile(consumo, 0.25, na.rm = TRUE), 2),
+      Mediana = round(median(consumo, na.rm = TRUE), 2),
+      Media = round(mean(consumo, na.rm = TRUE), 2),
+      Q3 = round(quantile(consumo, 0.75, na.rm = TRUE), 2),
+      Maximo = round(max(consumo, na.rm = TRUE), 2),
+      Rango = round(Maximo - Minimo, 2),
+      Rango_Intercuartilico = round(Q3 - Q1, 2),
+      Desviacion_Estandar = round(sd(consumo, na.rm = TRUE), 2),
+      Coef_Variacion = round((Desviacion_Estandar / Media) * 100, 2),
+      Curtosis = round(kurtosis(consumo, na.rm = TRUE), 2),
+      Asimetria = round(skewness(consumo, na.rm = TRUE), 2)
+    )
+  
+  return(resumen)
+}
+
+# Llamada a la función
+analisis_consumo <- analisis_exploratorio_consumo(datos_limpiados)
+
+
+# Mostrar la tabla con los resultados
+datatable( analisis_consumo )
+
+```
+
+### Distribución de la variable CONSUMO por día
+
+(Analisis del comportamiento del consumo, se identifican 2 zonas alta y baja carga)
+
+Comparativo General vs día
+
+```{r}
+library(ggplot2)
+library(patchwork)
+
+graficar_distribucion_dia <- function(datos, dia_especifico) {
+  # Verificar que el día ingresado es válido
+  dias_validos <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+  if (!(dia_especifico %in% dias_validos)) {
+    stop("El día ingresado no es válido. Debe ser uno de: lunes, martes, miércoles, jueves, viernes, sábado o domingo.")
+  }
+
+  # Gráfico general (todos los días)
+  p_general <- ggplot(datos, aes(x = consumo)) +
+    geom_histogram(fill = "steelblue", color = "black", bins = 30) +
+    theme_minimal(base_size = 14) +
+    labs(title = "Distribución General de Consumo",
+         x = "Consumo", y = "Frecuencia") +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+  # Gráfico para el día específico
+  p_dia <- ggplot(datos %>% filter(as.character(dia_sem) == dia_especifico), aes(x = consumo)) +
+    geom_histogram(fill = "darkorange", color = "black", bins = 30) +
+    theme_minimal(base_size = 14) +
+    labs(title = paste("Distribución de Consumo -", dia_especifico),
+         x = "Consumo", y = "Frecuencia") +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+  # Unir ambos gráficos en una fila
+  #layout <- p_general + p_dia + plot_layout(ncol = 2)
+  layout <- p_general + plot_layout(ncol = 1)
+  
+  return(layout)
+}
+
+# Ejemplo de uso: Graficar el consumo general y para los martes
+graficar_distribucion_dia(datos_limpiados, "lunes")
+# graficar_distribucion_dia(datos_limpiados, "martes")
+# graficar_distribucion_dia(datos_limpiados, "miércoles")
+# graficar_distribucion_dia(datos_limpiados, "jueves")
+# graficar_distribucion_dia(datos_limpiados, "viernes")
+# graficar_distribucion_dia(datos_limpiados, "sábado")
+# graficar_distribucion_dia(datos_limpiados, "domingo")
+
+```
+
+Comparativo Día vs día
 
 ```{r}
 library(ggplot2)
 library(dplyr)
-library(tidyr)
-library(DT)
+library(patchwork)
 
-
-
-# Función para graficar distribuciones de frecuencia de cada variable y generar tablas de frecuencias
-graficar_y_tabular_frecuencias <- function(datos) {
-  graficos <- list()
-  tablas_frecuencia <- list()
+graficar_dos_dias <- function(datos, dia1, dia2) {
+  # Lista de días válidos
+  dias_validos <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
   
-  for (col in colnames(datos)) {
-    # Crear gráfico de distribución de frecuencia
-    p <- ggplot(datos, aes_string(x = col)) +
-      geom_bar(fill = "steelblue", color = "black") +
-      theme_minimal() +
-      labs(title = paste("Distribución de", col), x = col, y = "Frecuencia") +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-    graficos[[col]] <- p
-    print(p)  # Mostrar el gráfico
-    
-    # Crear tabla de distribución de frecuencia
-    tabla <- datos %>%
-      count(!!sym(col)) %>%
-      rename(Frecuencia = n)
-    
-    # Convertir la tabla a formato datatable
-    tabla_dt <- datatable(tabla, options = list(pageLength = 10, scrollX = TRUE))
-    
-    tablas_frecuencia[[col]] <- tabla_dt
-    print(tabla_dt)  # Mostrar la tabla en formato DT
+  # Validar que los días ingresados sean correctos
+  if (!(dia1 %in% dias_validos) | !(dia2 %in% dias_validos)) {
+    stop("Los días ingresados no son válidos. Deben ser: lunes, martes, miércoles, jueves, viernes, sábado o domingo.")
   }
   
-  return(list(graficos = graficos, tablas = tablas_frecuencia))  # Devuelve listas con los gráficos y tablas
+  # Gráfico para el primer día
+  p1 <- ggplot(datos %>% filter(as.character(dia_sem) == dia1), aes(x = consumo)) +
+    geom_histogram(fill = "steelblue", color = "black", bins = 30) +
+    theme_minimal(base_size = 14) +
+    labs(title = paste("Distribución de Consumo -", dia1),
+         x = "Consumo", y = "Frecuencia") +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+  
+  # Gráfico para el segundo día
+  p2 <- ggplot(datos %>% filter(as.character(dia_sem) == dia2), aes(x = consumo)) +
+    geom_histogram(fill = "darkorange", color = "black", bins = 30) +
+    theme_minimal(base_size = 14) +
+    labs(title = paste("Distribución de Consumo -", dia2),
+         x = "Consumo", y = "Frecuencia") +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+  
+  # Unir ambos gráficos en una fila
+  layout <- p1 + p2 + plot_layout(ncol = 2)
+  
+  
+  return(layout)
 }
 
-# Aplicar la función al dataset limpiado
-resultados_frecuencia <- graficar_y_tabular_frecuencias(datos_limpiados)
+# Ejemplo de uso: Comparar consumo entre martes y viernes
+graficar_dos_dias(datos_limpiados, "lunes", "domingo")
+
+```
+
+### Distribucion horaria de la variable consumo
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+graficar_general_vs_dia <- function(datos, dia) {
+  # Lista de días válidos
+  dias_validos <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+  
+  # Validar que el día ingresado sea correcto
+  if (!(dia %in% dias_validos)) {
+    stop("El día ingresado no es válido. Debe ser: lunes, martes, miércoles, jueves, viernes, sábado o domingo.")
+  }
+  
+  # Agrupar datos por hora y calcular promedio de consumo (todos los días)
+  datos_general <- datos %>%
+    group_by(hora) %>%
+    summarise(consumo_promedio = mean(consumo, na.rm = TRUE))
+  
+  # Agrupar datos por hora pero solo para el día seleccionado
+  datos_dia <- datos %>%
+    filter(as.character(dia_sem) == dia) %>%
+    group_by(hora) %>%
+    summarise(consumo_promedio = mean(consumo, na.rm = TRUE))
+  
+  # Gráfico de la distribución general
+  p1 <- ggplot(datos_general, aes(x = hora, y = consumo_promedio)) +
+    geom_line(color = "steelblue", size = 1.2) +
+    geom_point(color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(title = "General",
+         x = "Hora del día", y = "Consumo Promedio") +
+    scale_x_continuous(breaks = 0:23) +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+  # Gráfico de la distribución para el día específico
+  p2 <- ggplot(datos_dia, aes(x = hora, y = consumo_promedio)) +
+    geom_line(color = "darkorange", size = 1.2) +
+    geom_point(color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(title = paste("Día", dia),
+         x = "Hora del día", y = "Consumo Promedio") +
+    scale_x_continuous(breaks = 0:23) +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+  # Unir los gráficos en una fila
+  #layout <- p1 + p2 + plot_layout(ncol = 2)
+  layout <- p1 + plot_layout(ncol = 1)
+  
+  return(layout)
+}
+
+# Ejemplo de uso: General vs Martes
+graficar_general_vs_dia(datos_limpiados, "lunes")
+
+```
+
+```{r}
+graficar_dia_vs_dia <- function(datos, dia1, dia2) {
+  # Lista de días válidos
+  dias_validos <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+  
+  # Validar que los días ingresados sean correctos
+  if (!(dia1 %in% dias_validos) | !(dia2 %in% dias_validos)) {
+    stop("Los días ingresados no son válidos. Deben ser: lunes, martes, miércoles, jueves, viernes, sábado o domingo.")
+  }
+  
+  # Agrupar datos por hora para cada día seleccionado
+  datos_dia1 <- datos %>%
+    filter(as.character(dia_sem) == dia1) %>%
+    group_by(hora) %>%
+    summarise(consumo_promedio = mean(consumo, na.rm = TRUE))
+  
+  datos_dia2 <- datos %>%
+    filter(as.character(dia_sem) == dia2) %>%
+    group_by(hora) %>%
+    summarise(consumo_promedio = mean(consumo, na.rm = TRUE))
+  
+  # Gráfico para el primer día
+  p1 <- ggplot(datos_dia1, aes(x = hora, y = consumo_promedio)) +
+    geom_line(color = "steelblue", size = 1.2) +
+    geom_point(color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(title = paste("Promedio Hora", dia1),
+         x = "Hora del día", y = "Consumo Promedio") +
+    scale_x_continuous(breaks = 0:23) +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+  # Gráfico para el segundo día
+  p2 <- ggplot(datos_dia2, aes(x = hora, y = consumo_promedio)) +
+    geom_line(color = "darkorange", size = 1.2) +
+    geom_point(color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(title = paste("Promedio Hora -", dia2),
+         x = "Hora del día", y = "Consumo Promedio") +
+    scale_x_continuous(breaks = 0:23) +
+    theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+  # Unir los gráficos en una fila
+  layout <- p1 + p2 + plot_layout(ncol = 2)
+  
+  return(layout)
+}
+
+# Ejemplo de uso: Comparar consumo entre martes y viernes
+graficar_dia_vs_dia(datos_limpiados, "martes", "viernes")
+
+```
+
+### Identificación estadistica y eliminación de atipicos
+
+Inicialmente no es recomendable borrar los atipicos hasta asegurarnos de que no sean parte de un patron de comportamiento, en este caso dichos valores corresponden a datos puntuales que no representan patrones de comportamiento.
+
+```{r}
+# Cargar librerías necesarias
+library(ggplot2)
+
+graficar_boxplot <- function(datos, width = 2, height = 2) {
+  p <- ggplot(datos, aes(y = consumo)) +
+    geom_boxplot(fill = "steelblue", color = "black", outlier.size = 1.5) +
+    theme_minimal(base_size = 10) +  # Tamaño de fuente ajustado
+    labs(title = "Boxplot de Consumo", y = "Consumo") +
+    theme(
+      axis.text.x = element_blank(),
+      plot.margin = margin(5, 5, 5, 5)  # Márgenes más compactos
+    ) +
+    coord_cartesian(clip = "off")  # Evita que se recorten puntos
+
+  print(p)  # Mostrar el gráfico
+  return(p)  # Retornar el gráfico
+}
+
+# Llamar la función con tamaño ajustable
+# resultados_boxplot <- graficar_boxplot(datos_limpiados, width = 2, height = 2)
+
+
+
+```
+
+```{r, fig.width=2, fig.height=3}
+# Llamar la función con tamaño ajustable
+resultados_boxplot <- graficar_boxplot(datos_limpiados)
+```
+
+### Segmentación de outliers
+
+```{r}
+
+
+# Función para describir los outliers (superior e inferior)
+describir_outliers <- function(datos) {
+  # Calcular los cuartiles y el rango intercuartílico (IQR)
+  Q1 <- quantile(datos$consumo, 0.25, na.rm = TRUE)
+  Q3 <- quantile(datos$consumo, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  
+  # Calcular los límites inferior y superior para los outliers
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  
+  # Filtrar los datos para los outliers
+  outliers_superior <- datos %>% filter(consumo > upper_bound)
+  outliers_inferior <- datos %>% filter(consumo < lower_bound)
+  
+  # Calcular conteo y porcentaje de outliers
+  total_datos <- nrow(datos)
+  
+  # Tabla para los outliers superiores
+  tabla_outliers_superior <- tibble(
+    Rango = paste(upper_bound, "a", max(datos$consumo, na.rm = TRUE)),
+    Conteo = nrow(outliers_superior),
+    Porcentaje = round( (nrow(outliers_superior) / total_datos) * 100, 2)
+  )
+  
+  # Tabla para los outliers inferiores
+  tabla_outliers_inferior <- tibble(
+    Rango = paste(min(datos$consumo, na.rm = TRUE), "a", lower_bound),
+    Conteo = nrow(outliers_inferior),
+    Porcentaje = round(  (nrow(outliers_inferior) / total_datos) * 100 , 2)
+  )
+  
+  # Devolver las dos tablas
+  return(list(
+    outliers_superior = tabla_outliers_superior,
+    outliers_inferior = tabla_outliers_inferior
+  ))
+}
+
+# Probar la función con el dataset
+resultados_outliers <- describir_outliers(datos_limpiados)
+
+# Ver los resultados
+datatable( resultados_outliers$outliers_superior )
+datatable( resultados_outliers$outliers_inferior )
+
+```
+
+### Tabla completa de outliers
+
+```{r}
+
+# Función para describir todos los outliers con la columna de rango
+describir_outliers_con_rango <- function(datos) {
+  # Calcular los cuartiles y el rango intercuartílico (IQR)
+  Q1 <- quantile(datos$consumo, 0.25, na.rm = TRUE)
+  Q3 <- quantile(datos$consumo, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  
+  # Calcular los límites inferior y superior para los outliers
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  
+  # Filtrar los outliers
+  outliers <- datos %>%
+    mutate(rango_outlier = case_when(
+      consumo < lower_bound ~ paste("Inferior (<", lower_bound, ")"),
+      consumo > upper_bound ~ paste("Superior (>", upper_bound, ")"),
+      TRUE ~ "No Outlier"
+    )) %>%
+    filter(consumo < lower_bound | consumo > upper_bound)
+  
+  # Devolver la tabla de outliers con rango
+  return(outliers)
+}
+
+# Probar la función con el dataset
+tabla_outliers_con_rango <- describir_outliers_con_rango(datos_limpiados)
+
+# Ver los resultados
+datatable( tabla_outliers_con_rango )
+
+
+```
+
+### Distribución de outliers (todos los rangos)
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(patchwork)  # Para organizar los gráficos en una fila
+library(scales)     # Para formato de porcentaje
+
+analizar_outliers_horarios_dias_distribucion <- function(datos) {
+  # Validar que las columnas necesarias existen
+  columnas_requeridas <- c("año", "mes", "dia", "dia_sem", "hora", "consumo")
+  if (!all(columnas_requeridas %in% colnames(datos))) {
+    stop("El dataset debe contener las columnas: año, mes, dia, dia_sem, hora y consumo")
+  }
+  
+  # Calcular límites de outliers usando IQR
+  Q1 <- quantile(datos$consumo, 0.25, na.rm = TRUE)
+  Q3 <- quantile(datos$consumo, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  
+  # Agregar columna de detección de outliers
+  datos <- datos %>%
+    mutate(es_outlier = consumo < lower_bound | consumo > upper_bound)
+  
+  # 📌 1️⃣ Proporción de outliers por hora del día
+  df_outliers_hora <- datos %>%
+    group_by(hora) %>%
+    summarise(proporcion_outliers = mean(es_outlier, na.rm = TRUE)) 
+  
+  p1 <- ggplot(df_outliers_hora, aes(x = hora, y = proporcion_outliers)) +
+    geom_line(color = "blue") + 
+    geom_point(color = "red") +
+    scale_y_continuous(labels = percent_format(accuracy = 1)) +
+    theme_minimal() +
+    labs(title = "Frecuencia de Outliers por Hora del Día",
+         x = "Hora del día",
+         y = "Proporción de Outliers") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # 📌 2️⃣ Proporción de outliers por día de la semana
+  df_outliers_dia <- datos %>%
+    group_by(dia_sem) %>%
+    summarise(proporcion_outliers = mean(es_outlier, na.rm = TRUE)) 
+  
+  # Ordenar días de la semana correctamente
+  niveles_dia_sem <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+  df_outliers_dia$dia_sem <- factor(df_outliers_dia$dia_sem, levels = niveles_dia_sem)
+
+  p2 <- ggplot(df_outliers_dia, aes(x = dia_sem, y = proporcion_outliers)) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    scale_y_continuous(labels = percent_format(accuracy = 1)) +
+    theme_minimal() +
+    labs(title = "Frecuencia de Outliers por Día de la Semana",
+         x = "Día de la semana",
+         y = "Proporción de Outliers") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # 📌 3️⃣ Distribución de los valores de los outliers
+  df_outliers <- datos %>%
+    filter(es_outlier == TRUE)
+
+  p3 <- ggplot(df_outliers, aes(x = consumo)) +
+    geom_histogram(fill = "darkred", bins = 20, alpha = 0.7, color = "black") +
+    theme_minimal() +
+    labs(title = "Distribución de Valores de Outliers",
+         x = "Consumo (solo outliers)",
+         y = "Frecuencia") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  # Mostrar los 3 gráficos en una misma fila
+  final_plot <- p1 + p2 + p3 + plot_layout(ncol = 3)
+  
+  print(final_plot)  # Mostrar el gráfico combinado
+  #return(final_plot) # Retornar el gráfico si se quiere guardar
+}
+
+# Ejecutar la función con el dataset
+analizar_outliers_horarios_dias_distribucion(datos_limpiados)
+
+```
+
+### Distribucion de outliers por rango
+
+```{r}
+# Función ajustada para analizar outliers de un rango específico
+analizar_outliers_rango <- function(datos, rango = "superior") {
+  # Validar que las columnas necesarias existen
+  columnas_requeridas <- c("año", "mes", "dia", "dia_sem", "hora", "consumo")
+  if (!all(columnas_requeridas %in% colnames(datos))) {
+    stop("El dataset debe contener las columnas: año, mes, dia, dia_sem, hora y consumo")
+  }
+  
+  # Calcular límites de outliers usando IQR
+  Q1 <- quantile(datos$consumo, 0.25, na.rm = TRUE)
+  Q3 <- quantile(datos$consumo, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  
+  # Filtrar según el rango de outliers solicitado
+  if (rango == "superior") {
+    datos <- datos %>%
+      mutate(es_outlier = consumo > upper_bound) %>%
+      filter(es_outlier == TRUE)
+  } else if (rango == "inferior") {
+    datos <- datos %>%
+      mutate(es_outlier = consumo < lower_bound) %>%
+      filter(es_outlier == TRUE)
+  } else {
+    stop("El rango debe ser 'superior' o 'inferior'.")
+  }
+
+  # 📌 1️⃣ Proporción de outliers por hora del día
+  df_outliers_hora <- datos %>%
+    group_by(hora) %>%
+    summarise(proporcion_outliers = mean(es_outlier, na.rm = TRUE)) 
+  
+  p1 <- ggplot(df_outliers_hora, aes(x = hora, y = proporcion_outliers)) +
+    geom_line(color = "blue") + 
+    geom_point(color = "red") +
+    scale_y_continuous(labels = percent_format(accuracy = 1)) +
+    theme_minimal() +
+    labs(title = paste("Frecuencia de Outliers por Hora del Día (", rango, ")", sep = ""),
+         x = "Hora del día",
+         y = "Proporción de Outliers") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # 📌 2️⃣ Proporción de outliers por día de la semana
+  df_outliers_dia <- datos %>%
+    group_by(dia_sem) %>%
+    summarise(proporcion_outliers = mean(es_outlier, na.rm = TRUE)) 
+  
+  # Ordenar días de la semana correctamente
+  niveles_dia_sem <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+  df_outliers_dia$dia_sem <- factor(df_outliers_dia$dia_sem, levels = niveles_dia_sem)
+
+  p2 <- ggplot(df_outliers_dia, aes(x = dia_sem, y = proporcion_outliers)) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    scale_y_continuous(labels = percent_format(accuracy = 1)) +
+    theme_minimal() +
+    labs(title = paste("Frecuencia de Outliers por Día de la Semana (", rango, ")", sep = ""),
+         x = "Día de la semana",
+         y = "Proporción de Outliers") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # 📌 3️⃣ Distribución de los valores de los outliers
+  p3 <- ggplot(datos, aes(x = consumo)) +
+    geom_histogram(fill = "darkred", bins = 20, alpha = 0.7, color = "black") +
+    theme_minimal() +
+    labs(title = paste("Distribución de Valores de Outliers (", rango, ")", sep = ""),
+         x = "Consumo (solo outliers)",
+         y = "Frecuencia") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  # Mostrar los 3 gráficos en una misma fila
+  final_plot <- p1 + p2 + p3 + plot_layout(ncol = 3)
+  
+  print(final_plot)  # Mostrar el gráfico combinado
+  #return(final_plot) # Retornar el gráfico si se quiere guardar
+}
+
+# Ejecutar la función con el dataset y el rango 'superior' o 'inferior'
+analizar_outliers_rango(datos_limpiados, rango = "superior")
+analizar_outliers_rango(datos_limpiados, rango = "inferior")
+
+
+```
+
+### Eliminacion de outliers
+
+```{r}
+# Eliminacion de outliers (si aplica) #####
+eliminar_outliers <- function(datos, columna = "consumo") {
+  # Calcular cuartiles y rango intercuartílico
+  Q1 <- quantile(datos[[columna]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(datos[[columna]], 0.75, na.rm = TRUE)
+  IQR_value <- Q3 - Q1
+  
+  # Definir límites para detectar outliers
+  limite_inferior <- Q1 - 1.5 * IQR_value
+  limite_superior <- Q3 + 1.5 * IQR_value
+  
+  # Filtrar datos dentro de los límites
+  datos_sin_outliers <- datos[datos[[columna]] >= limite_inferior & datos[[columna]] <= limite_superior, ]
+  
+  return(datos_sin_outliers)
+}
+
+# Línea de prueba
+datos_limpios_NA_OUT <- eliminar_outliers(datos_limpiados)
 
 
 ```
 
 ```{r}
+
+# Llamada a la función
+analisis_consumo_NA_OUT <- analisis_exploratorio_consumo(datos_limpios_NA_OUT)
+
+
+
+
+
+
+```
+
+### Comparativo descripcion de datos
+
+Con outliers
+
+```{r}
+# Mostrar la tabla con los resultados
+datatable( analisis_consumo )
+
+```
+
+sin outliers
+
+```{r}
+datatable( analisis_consumo_NA_OUT )
+```
+
+## Preparación para Identificacion de Grupos (Normalización)
+
+```{r}
+# Normalizar los datos de consumo (Z score mantiene la distribucion de los datos) #####
+
+normalizar_consumo <- function(datos, metodo = "zscore") {
+  # Verificar si la columna 'consumo' existe
+  if (!"consumo" %in% colnames(datos)) {
+    stop("El dataset no contiene la columna 'consumo'.")
+  }
+  
+  # Normalizar según el método elegido
+  if (metodo == "zscore") {
+    datos <- datos %>%
+      mutate(consumo_normalizado = (consumo - mean(consumo, na.rm = TRUE)) / sd(consumo, na.rm = TRUE))
+  } else if (metodo == "minmax") {
+    datos <- datos %>%
+      mutate(consumo_normalizado = (consumo - min(consumo, na.rm = TRUE)) / 
+               (max(consumo, na.rm = TRUE) - min(consumo, na.rm = TRUE)))
+  } else {
+    stop("Método no válido. Usa 'zscore' o 'minmax'.")
+  }
+  
+  return(datos)
+}
+
+# Ejemplo de uso:
+datos_normalizados <- normalizar_consumo(datos_limpios_NA_OUT, metodo = "zscore")
+
+datatable( head(datos_normalizados) )
+
+
+```
+
+## Calculo del numero Optimo de grupos
+
+```{r}
+# Función para recomendar el número óptimo de clusters #####
+
+
+library(cluster)
+library(factoextra)
+library(dplyr)
+library(DT)
+
+
+determinar_num_clusters <- function(data, max_k = 10) {
+  
+  # Elbow Method (WCSS - Within Cluster Sum of Squares)
+  elbow <- fviz_nbclust(data, kmeans, method = "wss", k.max = max_k)$data
+  opt_k_elbow <- which.max(diff(diff(elbow$y))) + 1 # Encontrar el "codo"
+  
+  # Silhouette Method
+  silhouette <- fviz_nbclust(data, kmeans, method = "silhouette", k.max = max_k)$data
+  opt_k_silhouette <- silhouette$clusters[which.max(silhouette$y)]
+  
+  # Gap Statistic
+  gap_stat <- clusGap(data, FUN = kmeans, K.max = max_k, B = 50)
+  opt_k_gap <- maxSE(gap_stat$Tab[, "gap"], gap_stat$Tab[, "SE.sim"]) # Regla de 1SE
+  
+  # Crear tabla con los resultados de cada métrica
+  resultados <- data.frame(
+    Metodo = c("Elbow", "Silhouette", "Gap Statistic"),
+    K_Optimo = c(opt_k_elbow, opt_k_silhouette, opt_k_gap)
+  )
+  
+  # Ranking de número de clusters (basado en cuántas veces aparece cada valor)
+  ranking <- resultados %>%
+    count(K_Optimo, name = "Frecuencia") %>%
+    arrange(desc(Frecuencia), K_Optimo)
+  
+  # Visualización de resultados
+  print("Resultados de cada método:")
+  print(DT::datatable(resultados))
+  
+  print("Ranking de número de clusters sugeridos:")
+  print(DT::datatable(ranking))
+  
+  # Gráficos
+  par(mfrow = c(1, 3))
+  fviz_nbclust(data, kmeans, method = "wss", k.max = max_k) + ggtitle("Elbow Method")
+  fviz_nbclust(data, kmeans, method = "silhouette", k.max = max_k) + ggtitle("Silhouette Method")
+  plot(gap_stat, main = "Gap Statistic")
+  par(mfrow = c(1, 1))
+  
+  return(list(Resultados = resultados, Ranking = ranking, Gap_Stat = gap_stat))
+}
+
+# Prueba la función con datos normalizados
+
+resultado <- determinar_num_clusters(datos_normalizados[, "consumo_normalizado"])
 
 ```

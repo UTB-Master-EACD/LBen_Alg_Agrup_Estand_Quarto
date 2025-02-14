@@ -845,23 +845,140 @@ datatable( head(datos_normalizados) )
 
 ```
 
-## Calculo del numero Optimo de grupos
+## Calculo del numero Optimo de Grupos
+
+Estadisticos de calculo
 
 ```{r}
-# Función para recomendar el número óptimo de clusters #####
 
+# Librerías necesarias
+library(ggplot2)
+library(factoextra)
+library(cluster)
+library(DT)
+
+# Función para calcular K óptimo y generar gráfico
+calcular_k_optimo_grafico <- function(dataset, metodo, k_max = 10) {
+  datos <- dataset %>% select(consumo_normalizado)
+  
+  if (metodo == "codo") {
+    wss <- sapply(1:k_max, function(k) {
+      kmeans(datos, centers = k, nstart = 10)$tot.withinss
+    })
+    df_wss <- data.frame(K = 1:k_max, WSS = wss)
+    grafico <- ggplot(df_wss, aes(x = K, y = WSS)) +
+      geom_point() + geom_line() + ggtitle("Método del Codo") +
+      xlab("Número de Clusters") + ylab("Suma de cuadrados intra-cluster")
+  }
+  
+  else if (metodo == "silhouette") {
+    sil_width <- sapply(2:k_max, function(k) {
+      km <- kmeans(datos, centers = k, nstart = 10)
+      mean(silhouette(km$cluster, dist(datos))[, 3])
+    })
+    df_sil <- data.frame(K = 2:k_max, Silhouette = sil_width)
+    grafico <- ggplot(df_sil, aes(x = K, y = Silhouette)) +
+      geom_point() + geom_line() + ggtitle("Método de Silhouette") +
+      xlab("Número de Clusters") + ylab("Coeficiente Silhouette Promedio")
+  }
+  
+  else if (metodo == "gap_stat") {
+    gap_stat <- clusGap(datos, FUN = kmeans, nstart = 10, K.max = k_max, B = 50)
+    grafico <- fviz_gap_stat(gap_stat)
+  }
+  
+  else {
+    stop("Método no reconocido. Usa 'codo', 'silhouette' o 'gap_stat'")
+  }
+  
+  print(grafico)
+}
+
+
+calcular_k_optimo_tabla <- function(dataset, metodo, k_max = 10) {
+  datos <- dataset %>% select(consumo_normalizado)
+  
+  if (metodo == "codo") {
+    wss <- sapply(1:k_max, function(k) {
+      kmeans(datos, centers = k, nstart = 10)$tot.withinss
+    })
+    resultados <- data.frame(K = 1:k_max, WSS = wss)
+  }
+  
+  else if (metodo == "silhouette") {
+    sil_width <- sapply(2:k_max, function(k) {
+      km <- kmeans(datos, centers = k, nstart = 10)
+      mean(silhouette(km$cluster, dist(datos))[, 3])
+    })
+    resultados <- data.frame(K = 2:k_max, Silhouette = sil_width)
+  }
+  
+  else if (metodo == "gap_stat") {
+    gap_stat <- clusGap(datos, FUN = kmeans, nstart = 10, K.max = k_max, B = 50)
+    resultados <- data.frame(K = 1:k_max, GAP = gap_stat$Tab[, "gap"], SE = gap_stat$Tab[, "SE.sim"])
+  }
+  
+  else {
+    stop("Método no reconocido. Usa 'codo', 'silhouette' o 'gap_stat'")
+  }
+  
+  DT::datatable(resultados, options = list(pageLength = 5)) # No usar print()
+}
+
+```
+
+Metodo del Codo
+
+```{r, fig.width=10, fig.height=3}
+# Llamar las funciones con el dataset normalizado
+calcular_k_optimo_grafico(datos_normalizados, metodo = "codo")
+
+```
+
+```{r}
+calcular_k_optimo_tabla(datos_normalizados, metodo = "codo")
+```
+
+Metodo de Silhouette
+
+```{r, fig.width=10, fig.height=3}
+# Llamar las funciones con el dataset normalizado
+calcular_k_optimo_grafico(datos_normalizados, metodo = "silhouette")
+
+```
+
+```{r}
+calcular_k_optimo_tabla(datos_normalizados, metodo = "silhouette")
+```
+
+Metodo de gap_stat
+
+```{r, fig.width=10, fig.height=3}
+# Llamar las funciones con el dataset normalizado
+calcular_k_optimo_grafico(datos_normalizados, metodo = "gap_stat")
+
+```
+
+```{r}
+calcular_k_optimo_tabla(datos_normalizados, metodo = "gap_stat")
+```
+
+Numero optimo de grupos
+
+```{r}
+
+# Función para recomendar el número óptimo de clusters #####
 
 library(cluster)
 library(factoextra)
 library(dplyr)
 library(DT)
 
-
 determinar_num_clusters <- function(data, max_k = 10) {
   
   # Elbow Method (WCSS - Within Cluster Sum of Squares)
   elbow <- fviz_nbclust(data, kmeans, method = "wss", k.max = max_k)$data
-  opt_k_elbow <- which.max(diff(diff(elbow$y))) + 1 # Encontrar el "codo"
+  opt_k_elbow <- which.max(diff(diff(elbow$y))) + 1  # Encontrar el "codo"
   
   # Silhouette Method
   silhouette <- fviz_nbclust(data, kmeans, method = "silhouette", k.max = max_k)$data
@@ -869,7 +986,7 @@ determinar_num_clusters <- function(data, max_k = 10) {
   
   # Gap Statistic
   gap_stat <- clusGap(data, FUN = kmeans, K.max = max_k, B = 50)
-  opt_k_gap <- maxSE(gap_stat$Tab[, "gap"], gap_stat$Tab[, "SE.sim"]) # Regla de 1SE
+  opt_k_gap <- maxSE(gap_stat$Tab[, "gap"], gap_stat$Tab[, "SE.sim"])  # Regla de 1SE
   
   # Crear tabla con los resultados de cada métrica
   resultados <- data.frame(
@@ -882,25 +999,83 @@ determinar_num_clusters <- function(data, max_k = 10) {
     count(K_Optimo, name = "Frecuencia") %>%
     arrange(desc(Frecuencia), K_Optimo)
   
-  # Visualización de resultados
-  print("Resultados de cada método:")
-  print(DT::datatable(resultados))
-  
-  print("Ranking de número de clusters sugeridos:")
-  print(DT::datatable(ranking))
-  
-  # Gráficos
-  par(mfrow = c(1, 3))
-  fviz_nbclust(data, kmeans, method = "wss", k.max = max_k) + ggtitle("Elbow Method")
-  fviz_nbclust(data, kmeans, method = "silhouette", k.max = max_k) + ggtitle("Silhouette Method")
-  plot(gap_stat, main = "Gap Statistic")
-  par(mfrow = c(1, 1))
-  
-  return(list(Resultados = resultados, Ranking = ranking, Gap_Stat = gap_stat))
+  # Retornar las tablas para su visualización en Quarto
+  list(Resultados = resultados, Ranking = ranking, Gap_Stat = gap_stat)
 }
 
-# Prueba la función con datos normalizados
-
+# Ejecutar la función con datos normalizados
 resultado <- determinar_num_clusters(datos_normalizados[, "consumo_normalizado"])
 
+# Mostrar tablas en Quarto
+resultado$Resultados |> DT::datatable()
+resultado$Ranking |> DT::datatable()
+
 ```
+
+## Creación de Grupos
+
+```{r}
+# Función para aplicar clustering#####
+
+# Cargar librerías necesarias
+library(cluster)
+library(factoextra)
+library(dplyr)
+library(DT)
+library(dbscan)
+
+
+
+aplicar_clustering <- function(datos, num_clusters, metodo = "kmeans") {
+  
+  # Seleccionar solo la variable de consumo normalizado para la agrupación
+  datos_clustering <- datos %>% select(consumo_normalizado)
+  
+  # Aplicar el algoritmo de clustering según el método seleccionado
+  if (metodo == "kmeans") {
+    modelo <- kmeans(datos_clustering, centers = num_clusters, nstart = 25)
+    datos$cluster <- as.factor(modelo$cluster)
+  } else if (metodo == "hclust") {
+    distancia <- dist(datos_clustering, method = "euclidean")
+    jerarquico <- hclust(distancia, method = "ward.D2")
+    datos$cluster <- as.factor(cutree(jerarquico, k = num_clusters))
+  } else if (metodo == "dbscan") {
+    library(dbscan)
+    modelo <- dbscan(datos_clustering, eps = 0.2, minPts = 5)
+    datos$cluster <- as.factor(modelo$cluster)
+  } else {
+    stop("Método no soportado. Usa 'kmeans', 'hclust' o 'dbscan'.")
+  }
+  
+  # Mostrar la tabla en formato DT
+  tabla_resultado <- datatable(datos, options = list(pageLength = 10, scrollX = TRUE))
+  
+  print(tabla_resultado)  # Mostrar la tabla
+  
+  return(datos)  # Retornar el dataset con la columna de cluster asignado
+}
+
+# Ejemplo de uso:
+datos_clusterizados <- aplicar_clustering(datos_normalizados, num_clusters = 2, metodo = "kmeans")
+
+datatable(datos_clusterizados)
+
+```
+
+### Validación de Grupos
+
+### Exploración e interpretación de grupos
+
+## Edición o Ajuste de Grupos (si aplica)
+
+### Validación de grupos editado
+
+### Exploración e interpretación de grupos editado
+
+## Modelos de LB
+
+### Construcción
+
+### Metricas
+
+### Comparaciones contra modelos sin agrupaciones

@@ -1064,6 +1064,145 @@ datatable(datos_clusterizados)
 
 ### Validación de Grupos
 
+Pruebas de normalidad y de homocedasticidad
+
+```{r}
+#   Validacion de CLuster (Metodos Estadisticos) #####
+
+# Prueba de Normalidad y de Homocedasticidad #####
+#(para selecccionar: ANOVA o Kruskal-Wallis)
+
+library(dplyr)
+library(car)  # Para la prueba de Levene
+library(ggpubr)  # Para Shapiro-Wilk
+
+validar_supuestos_clusters <- function(datos_clusterizados) {
+  resultados <- list()
+  
+  # Verificar normalidad por cluster
+  normalidad <- datos_clusterizados %>% 
+    group_by(cluster) %>% 
+    summarise(p_valor = shapiro.test(consumo)$p.value) %>% 
+    mutate(resultado = ifelse(p_valor > 0.05, "Normal", "No Normal"))
+  
+  # Verificar homocedasticidad
+  levene_pvalor <- leveneTest(consumo ~ cluster, data = datos_clusterizados)$"Pr(>F)"[1]
+  homocedasticidad <- ifelse(levene_pvalor > 0.05, "Varianzas Iguales", "Varianzas Diferentes")
+  
+  # Determinar prueba estadística a utilizar
+  if (all(normalidad$resultado == "Normal") & homocedasticidad == "Varianzas Iguales") {
+    prueba_recomendada <- "ANOVA"
+  } else {
+    prueba_recomendada <- "Kruskal-Wallis"
+  }
+  
+  # Crear mensaje para el usuario
+  mensaje <- paste0(
+    "Resultados de las pruebas:\n",
+    "- Normalidad por cluster: ", paste(normalidad$cluster, normalidad$resultado, sep = " -> ", collapse = ", "), "\n",
+    "- Homocedasticidad (Levene test): ", homocedasticidad, "\n",
+    "\nRecomendación: Se sugiere usar la prueba de ", prueba_recomendada, "."
+  )
+  
+  return(mensaje)
+}
+
+# Ejemplo de uso
+resultado <- validar_supuestos_clusters(datos_clusterizados)
+cat(resultado)
+```
+
+Pruebas de Anova o de Kruskal-Wallis
+
+```{r}
+# Prueba de Anova o de Kruskal para validacion de cluster #####
+
+realizar_prueba_clusters <- function(datos, metodo = "ANOVA") {
+  library(dplyr)
+  library(tidyr)
+  library(ggpubr)
+  
+  # Verificar que el método ingresado sea válido
+  if (!metodo %in% c("ANOVA", "Kruskal-Wallis")) {
+    stop("Método no válido. Use 'ANOVA' o 'Kruskal-Wallis'.")
+  }
+  
+  # Convertir cluster a factor si no lo es
+  datos$cluster <- as.factor(datos$cluster)
+  
+  resultado <- NULL
+  mensaje <- ""
+  
+  if (metodo == "ANOVA") {
+    # ANOVA asume normalidad y homocedasticidad, se recomienda usar solo si las pruebas previas lo confirman
+    prueba_anova <- aov(consumo ~ cluster, data = datos)
+    resultado <- summary(prueba_anova)
+    p_valor <- summary(prueba_anova)[[1]][["Pr(>F)"]][1]
+    
+    if (p_valor < 0.05) {
+      mensaje <- "El ANOVA indica diferencias significativas entre los clusters (p < 0.05). Se recomienda una prueba post hoc como Tukey HSD para identificar diferencias específicas."
+    } else {
+      mensaje <- "El ANOVA no detectó diferencias significativas entre los clusters (p >= 0.05). No se requiere prueba post hoc."
+    }
+  } else {
+    # Kruskal-Wallis para datos no normales o heterocedásticos
+    prueba_kruskal <- kruskal.test(consumo ~ cluster, data = datos)
+    resultado <- prueba_kruskal
+    p_valor <- prueba_kruskal$p.value
+    
+    if (p_valor < 0.05) {
+      mensaje <- "La prueba de Kruskal-Wallis indica diferencias significativas entre los clusters (p < 0.05). Se recomienda una prueba post hoc como Dunn para comparaciones específicas."
+    } else {
+      mensaje <- "La prueba de Kruskal-Wallis no detectó diferencias significativas entre los clusters (p >= 0.05). No se requiere prueba post hoc."
+    }
+  }
+  
+  return(list(Resultados = resultado, Interpretación = mensaje))
+}
+
+# Ejemplo de uso
+resultado_prueba <- realizar_prueba_clusters(datos_clusterizados, metodo = "Kruskal-Wallis")
+print(resultado_prueba$Resultados)
+cat(resultado_prueba$Interpretación)
+```
+
+Prueba Posthoc Dunn
+
+```{r}
+# Prueba Posthoc Dunn #####
+
+library(FSA)  # Para la prueba de Dunn
+library(dplyr)
+
+realizar_prueba_posthoc <- function(datos_clusterizados) {
+  # Verificar si hay más de 2 clusters
+  num_clusters <- length(unique(datos_clusterizados$cluster))
+  
+  if (num_clusters < 2) {
+    return("La prueba post hoc no es necesaria, ya que solo hay un cluster.")
+  }
+  
+  # Aplicar la prueba de Dunn con corrección de Bonferroni
+  prueba_dunn <- dunnTest(consumo ~ cluster, data = datos_clusterizados, method = "bonferroni")
+  
+  # Extraer los resultados
+  resultados <- prueba_dunn$res
+  
+  # Formatear salida
+  interpretacion <- resultados %>% 
+    mutate(Interpretación = ifelse(P.adj < 0.05, "Diferencia significativa", "No significativa"))
+  
+  return(list(Resultados = resultados, Interpretación = interpretacion))
+}
+
+# Prueba de la función
+resultado_posthoc <- realizar_prueba_posthoc(datos_clusterizados)
+# print(resultado_posthoc$Resultados)
+# print(resultado_posthoc$Interpretación)
+
+datatable((resultado_posthoc$Interpretación))
+```
+
 ### Exploración e interpretación de grupos
 
 ## Edición o Ajuste de Grupos (si aplica)

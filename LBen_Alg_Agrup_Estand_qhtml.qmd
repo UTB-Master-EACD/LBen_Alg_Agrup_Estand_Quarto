@@ -1213,6 +1213,8 @@ datatable((resultado_posthoc$Interpretación))
 
 Exploración
 
+funcion auxiliar para establecer colores
+
 ```{r}
 #funcion auxiliar para establecer colores
 
@@ -1802,9 +1804,381 @@ resultados_probabilidad[["martes"]]$grafico
 
 ```
 
-#### Interpretación de grupos
+#### 
 
-Tabla y matriz de frnajas horarias
+Tabla y matriz de franjas horarias
+
+```{r}
+# matriz dia hora cluster dominante  #####
+# Función para generar tabla y matriz con cluster dominante de cada hora en el dia (semana completa)#####
+# genera una tabla y una matriz con los dias de la semana y las 24h con su cluster dominante absoluto y por % de pertenencia (puede haber mixto si no supera umbral)
+
+
+# library(ggplot2)
+# library(dplyr)
+# library(tidyr)
+# library(DT)
+# 
+# # Función para generar tabla completa con cluster dominante considerando un umbral de probabilidad
+# generar_tabla_probabilidad_completa <- function(datos_probabilidad, umbral_probabilidad = 0.7) {
+#   
+#   # Agrupar por día de la semana y hora, calculando el promedio de probabilidad por cluster
+#   tabla_probabilidad <- datos_probabilidad %>%
+#     group_by(dia_sem, hora) %>%
+#     summarise(across(starts_with("cluster_"), mean, na.rm = TRUE)) %>%
+#     ungroup()
+#   
+#   # Determinar el cluster dominante con el umbral definido
+#   max_probabilidad <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, max)
+#   cluster_dominante <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, 
+#                              function(x) ifelse(max(x) >= umbral_probabilidad, names(x)[which.max(x)], "Mixto"))
+#   
+#   # Limpiar nombres de los clusters
+#   tabla_probabilidad$cluster_dominante <- gsub("cluster_", "", cluster_dominante)
+#   
+#   # Mostrar en formato DT
+#   datatable(tabla_probabilidad, options = list(pageLength = 10, scrollX = TRUE))
+#   
+#   return(tabla_probabilidad)
+# }
+# 
+# # Función para generar matriz de cluster dominante
+# generar_matriz_clusters <- function(tabla_probabilidad) {
+#   
+#   # Convertir la tabla en formato largo para la matriz visual
+#   tabla_probabilidad <- tabla_probabilidad %>%
+#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
+#   
+#   # Crear la matriz visual con ggplot
+#   matriz <- ggplot(tabla_probabilidad, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
+#     geom_tile(color = "white") +
+#     scale_fill_manual(values = c("1" = "red", "2" = "blue", "3" = "green", "4" = "purple", "5" = "orange", "Mixto" = "gray")) +
+#     labs(title = "Matriz de Cluster Dominante por Día y Hora",
+#          x = "Hora del Día",
+#          y = "Día de la Semana",
+#          fill = "Cluster Dominante") +
+#     theme_minimal()
+#   
+#   print(matriz)  # Mostrar el gráfico
+# }
+# 
+# # Ejemplo de uso:
+# tabla_completa_abs <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.5)
+# tabla_completa <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.6)
+# generar_matriz_clusters(tabla_completa_abs)
+# generar_matriz_clusters(tabla_completa)
+
+
+```
+
+```{r}
+# library(ggplot2)
+# library(dplyr)
+# library(tidyr)
+# library(DT)
+# library(scales)  # Para colores hue_pal()
+# 
+# # Función para obtener colores consistentes
+# generar_colores_clusters <- function(tabla_probabilidad) {
+#   clusters_unicos <- unique(tabla_probabilidad$cluster_dominante)
+#   clusters_unicos <- sort(clusters_unicos[clusters_unicos != "Mixto"])  # Ordenar y excluir "Mixto"
+#   num_clusters <- length(clusters_unicos)
+# 
+#   # Definir el color fijo para "Mixto"
+#   colores_fijos <- c("Mixto" = "gray")
+# 
+#   # Generar colores adicionales con hue_pal() para los clusters
+#   colores_extra <- hue_pal()(num_clusters)  # Generar colores distintos
+#   nombres_colores_extra <- setNames(colores_extra, clusters_unicos)
+# 
+#   # Combinar colores fijos con los generados dinámicamente
+#   colores_finales <- c(colores_fijos, nombres_colores_extra)
+#   return(colores_finales)
+# }
+# 
+# # Función para generar tabla completa con cluster dominante considerando un umbral de probabilidad
+# generar_tabla_probabilidad_completa <- function(datos_probabilidad, umbral_probabilidad = 0.7) {
+#   
+#   # Agrupar por día de la semana y hora, calculando el promedio de probabilidad por cluster
+#   tabla_probabilidad <- datos_probabilidad %>%
+#     group_by(dia_sem, hora) %>%
+#     summarise(across(starts_with("cluster_"), mean, na.rm = TRUE)) %>%
+#     ungroup()
+#   
+#   # Determinar el cluster dominante con el umbral definido
+#   max_probabilidad <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, max)
+#   cluster_dominante <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, 
+#                              function(x) ifelse(max(x) >= umbral_probabilidad, names(x)[which.max(x)], "Mixto"))
+#   
+#   # Limpiar nombres de los clusters
+#   tabla_probabilidad$cluster_dominante <- gsub("cluster_", "", cluster_dominante)
+#   
+#   # Mostrar en formato DT
+#   datatable(tabla_probabilidad, options = list(pageLength = 10, scrollX = TRUE))
+#   
+#   return(tabla_probabilidad)
+# }
+# 
+# # Función para generar matriz de cluster dominante
+# generar_matriz_clusters <- function(tabla_probabilidad) {
+#   
+#   # Obtener colores dinámicos
+#   colores_clusters <- generar_colores_clusters(tabla_probabilidad)
+#   
+#   # Convertir la tabla en formato largo para la matriz visual
+#   tabla_probabilidad <- tabla_probabilidad %>%
+#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
+#   
+#   # Crear la matriz visual con ggplot
+#   matriz <- ggplot(tabla_probabilidad, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
+#     geom_tile(color = "white") +
+#     scale_fill_manual(values = colores_clusters) +
+#     labs(title = "Matriz de Cluster Dominante por Día y Hora",
+#          x = "Hora del Día",
+#          y = "Día de la Semana",
+#          fill = "Cluster Dominante") +
+#     theme_minimal()
+#   
+#   print(matriz)  # Mostrar el gráfico
+# }
+# 
+# # Ejemplo de uso:
+# tabla_completa_abs <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.5)
+# tabla_completa <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.6)
+# generar_matriz_clusters(tabla_completa_abs)
+# generar_matriz_clusters(tabla_completa)
+
+```
+
+```{r}
+# library(ggplot2)
+# library(dplyr)
+# library(tidyr)
+# library(DT)
+# 
+# # Función para generar tabla completa con cluster dominante considerando un umbral de probabilidad
+# generar_tabla_probabilidad_completa <- function(datos_probabilidad, umbral_probabilidad = 0.7) {
+#   
+#   # Agrupar por día de la semana y hora, calculando el promedio de probabilidad por cluster
+#   tabla_probabilidad <- datos_probabilidad %>%
+#     group_by(dia_sem, hora) %>%
+#     summarise(across(starts_with("cluster_"), mean, na.rm = TRUE)) %>%
+#     ungroup()
+#   
+#   # Determinar el cluster dominante con el umbral definido
+#   max_probabilidad <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, max)
+#   cluster_dominante <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, 
+#                              function(x) ifelse(max(x) >= umbral_probabilidad, names(x)[which.max(x)], "Mixto"))
+#   
+#   # Limpiar nombres de los clusters
+#   tabla_probabilidad$cluster_dominante <- gsub("cluster_", "", cluster_dominante)
+#   
+#   # Mostrar en formato DT
+#   datatable(tabla_probabilidad, options = list(pageLength = 10, scrollX = TRUE))
+#   
+#   return(tabla_probabilidad)
+# }
+# 
+# # Función para generar matriz de cluster dominante
+# generar_matriz_clusters <- function(tabla_probabilidad) {
+#   
+#   # Convertir la tabla en formato largo para la matriz visual
+#   tabla_probabilidad <- tabla_probabilidad %>%
+#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
+#   
+#   # Obtener colores con la función definida previamente
+#   colores_clusters <- obtener_colores_clusters(tabla_probabilidad)
+#   
+#   # Agregar el color gris para "Mixto"
+#   colores_clusters["Mixto"] <- "gray"
+#   
+#   # Crear la matriz visual con ggplot
+#   matriz <- ggplot(tabla_probabilidad, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
+#     geom_tile(color = "white") +
+#     scale_fill_manual(values = colores_clusters) +
+#     labs(title = "Matriz de Cluster Dominante por Día y Hora",
+#          x = "Hora del Día",
+#          y = "Día de la Semana",
+#          fill = "Cluster Dominante") +
+#     theme_minimal()
+#   
+#   print(matriz)  # Mostrar el gráfico
+# }
+# 
+# # Ejemplo de uso:
+# tabla_completa_abs <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.5)
+# tabla_completa <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.6)
+# generar_matriz_clusters(tabla_completa_abs)
+# generar_matriz_clusters(tabla_completa)
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(DT)
+
+# Función para obtener colores consistentes
+obtener_colores_clusters <- function(datos_clusterizados) {
+  clusters_unicos <- sort(unique(datos_clusterizados$cluster))  # Ordenar clusters únicos
+  num_clusters <- length(clusters_unicos)
+
+  # Definir los dos primeros colores fijos
+  colores_fijos <- c("1" = "blue", "2" = "red")  
+
+  # Si hay más clusters, generar colores adicionales con hue_pal()
+  if (num_clusters > 2) {
+    clusters_adicionales <- setdiff(clusters_unicos, c(1, 2))
+    colores_extra <- hue_pal()(length(clusters_adicionales))  # Colores adicionales
+    nombres_clusters_extra <- as.character(clusters_adicionales)
+    nombres_colores_extra <- setNames(colores_extra, nombres_clusters_extra)
+
+    # Combinar colores fijos con los adicionales
+    colores_finales <- c(colores_fijos, nombres_colores_extra)
+  } else {
+    colores_finales <- colores_fijos
+  }
+
+  colores_finales["Mixto"] <- "gray"  # Agregar color fijo para "Mixto"
+  return(colores_finales)
+}
+
+# Función para generar tabla completa con cluster dominante considerando un umbral de probabilidad
+generar_tabla_probabilidad_completa <- function(datos_probabilidad, umbral_probabilidad = 0.7) {
+  
+  # Agrupar por día de la semana y hora, calculando el promedio de probabilidad por cluster
+  tabla_probabilidad <- datos_probabilidad %>%
+    group_by(dia_sem, hora) %>%
+    summarise(across(starts_with("cluster_"), mean, na.rm = TRUE)) %>%
+    ungroup()
+  
+  # Determinar el cluster dominante con el umbral definido
+  max_probabilidad <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, max)
+  cluster_dominante <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, 
+                             function(x) ifelse(max(x) >= umbral_probabilidad, names(x)[which.max(x)], "Mixto"))
+  
+  # Limpiar nombres de los clusters
+  tabla_probabilidad$cluster_dominante <- gsub("cluster_", "", cluster_dominante)
+  
+  # Mostrar en formato DT
+  datatable(tabla_probabilidad, options = list(pageLength = 10, scrollX = TRUE))
+  
+  return(tabla_probabilidad)
+}
+
+# Función para generar matriz de cluster dominante
+generar_matriz_clusters <- function(tabla_probabilidad) {
+  
+  # Convertir la tabla en formato largo para la matriz visual
+  tabla_probabilidad <- tabla_probabilidad %>%
+    mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
+  
+  # Obtener colores basados en los clusters detectados
+  colores_clusters <- obtener_colores_clusters(tabla_probabilidad)
+  
+  # Crear la matriz visual con ggplot
+  matriz <- ggplot(tabla_probabilidad, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
+    geom_tile(color = "white") +
+    scale_fill_manual(values = colores_clusters) +
+    labs(title = "Matriz de Cluster Dominante por Día y Hora",
+         x = "Hora del Día",
+         y = "Día de la Semana",
+         fill = "Cluster Dominante") +
+    theme_minimal()
+  
+  print(matriz)  # Mostrar el gráfico
+}
+
+```
+
+Umbral 50%
+
+```{r}
+tabla_completa <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.5)
+
+generar_matriz_clusters(tabla_completa)
+```
+
+Umbral 60%
+
+```{r}
+tabla_completa_umbral <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.6)
+
+generar_matriz_clusters(tabla_completa_umbral)
+```
+
+Tabla franjas
+
+```{r}
+# Función para consolidar las franjas horarias por cluster y día #####
+#' resume y organiza las tablas anteriores en una tabla con las franjas horarias en los dias de la semana para cada cluster
+#' crea un excel para editar las frnajas horarias de los cluster
+#' se editan las franjas por si el usuario quiere ajustar (uniformar los cluster, ej que todos empeicen a la misma hora)
+#' fusiona el excel con datos clusterizados para tener datos clusterizados por algoritmo y editado
+
+
+library(dplyr)
+library(openxlsx)
+
+# Función para consolidar franjas horarias en un dataframe
+consolidar_franjas_horarias <- function(tabla) {
+  niveles_dias <- c("domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado")
+  
+  agrupar_horas <- function(horas) {
+    rle_horas <- rle(horas)
+    valores <- rle_horas$values
+    grupos <- split(valores, cumsum(c(1, diff(valores) != 1)))
+    
+    franjas <- sapply(grupos, function(g) {
+      if (length(g) > 1) {
+        paste0(min(g), "-", max(g))
+      } else {
+        as.character(g)
+      }
+    })
+    
+    paste(franjas, collapse = ", ")
+  }
+  
+  tabla_franjas <- tabla %>%
+    mutate(dia_sem = factor(dia_sem, levels = niveles_dias)) %>%
+    arrange(dia_sem, hora, cluster_dominante) %>%
+    group_by(dia_sem, cluster_dominante) %>%
+    summarise(franja_horaria = agrupar_horas(hora), .groups = "drop")
+  
+  return(tabla_franjas)  # Retorna como un data.frame
+}
+
+
+
+
+```
+
+```{r}
+# Generar la tabla
+
+tabla_franjas <- consolidar_franjas_horarias(tabla_completa)
+datatable(tabla_franjas, options = list(pageLength = 20, scrollX = TRUE))
+
+```
+
+```{r}
+#Generar la tabla
+tabla_franjas_umbral <- consolidar_franjas_horarias(tabla_completa_umbral)
+datatable(tabla_franjas_umbral, options = list(pageLength = 20, scrollX = TRUE))
+```
+
+```{r}
+# # Exportar a Excel
+# write.xlsx(tabla_franjas, "tabla_franjas.xlsx")
+# 
+# print("Archivo tabla_franjas.xlsx guardado. Edítalo y luego cárgalo de nuevo.")
+
+
+```
+
+#### Interpretación de grupos
 
 Observaciones generales de analisis exploratorio e interpretacion de grupos
 
@@ -1821,3 +2195,5 @@ Observaciones generales de analisis exploratorio e interpretacion de grupos
 ### Metricas
 
 ### Comparaciones contra modelos sin agrupaciones
+
+## Observaciones Generales

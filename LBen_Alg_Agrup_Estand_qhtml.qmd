@@ -2605,10 +2605,319 @@ Observaciones generales del analisis exploratorio e interpretacion de los datos 
 
 ## Modelos de LB
 
+preparar datos para las LB de consumo absoluto.
+
+```{r}
+
+agregar_promedios <- function(datos) {
+  library(dplyr)
+  
+  datos <- datos %>%
+    mutate(
+      promedio_total = mean(consumo, na.rm = TRUE),  # Promedio de todo el dataset
+      
+      promedio_cluster = ave(consumo, cluster, FUN = function(x) mean(x, na.rm = TRUE)),  # Promedio por cluster
+      
+      promedio_cluster_editado = ave(consumo, cluster_editado, FUN = function(x) mean(x, na.rm = TRUE))  # Promedio por cluster editado
+    )
+  
+  return(datos)
+}
+
+# Uso:
+datos_lb <- agregar_promedios(datos_clusterizados_editado)
+
+# Verificar resultado:
+datatable(datos_lb)
+
+
+```
+
 ### Construcción
+
+modelos de LBen de consumo absoluto
+
+```{r}
+
+
+```
+
+```{r}
+
+library(dplyr)
+library(DT)
+
+calcular_estadisticas_totales <- function(datos_clusterizados) {
+  # Verificar si el dataset tiene la columna "cluster"
+  if (!"cluster" %in% colnames(datos_clusterizados)) {
+    stop("El dataset no contiene una columna llamada 'cluster'. Asegúrate de que los datos estén correctamente clusterizados.")
+  }
+  
+  # Calcular estadísticas por cluster
+  resumen_clusters <- datos_clusterizados %>%
+    # group_by(cluster) %>%
+    summarise(
+      Min = min(consumo, na.rm = TRUE),
+      Max = max(consumo, na.rm = TRUE),
+      Promedio = mean(consumo, na.rm = TRUE),
+      Mediana = median(consumo, na.rm = TRUE),
+      SD = sd(consumo, na.rm = TRUE),
+      IQR = IQR(consumo, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Mostrar la tabla con formato interactivo
+  datatable(resumen_clusters, options = list(pageLength = 5))
+}
+
+# 📌 **Ejemplo de uso**
+calcular_estadisticas_totales(datos_clusterizados)
+
+calcular_estadisticas_clusters(datos_clusterizados)
+
+calcular_estadisticas_clusters_editado(datos_clusterizados_editado)
+```
 
 ### Metricas
 
-### Comparaciones contra modelos sin agrupaciones
+tabla de errores
+
+```{r}
+
+calcular_metricas <- function(datos) {
+  library(dplyr)
+  
+  # Calcular residuos para cada modelo
+  datos <- datos %>%
+    mutate(
+      residuo_total = consumo - promedio_total,
+      residuo_cluster = consumo - promedio_cluster,
+      residuo_cluster_editado = consumo - promedio_cluster_editado
+    )
+  
+  # Función auxiliar para calcular métricas
+  calcular_metricas_modelo <- function(residuos, consumo_real) {
+    mad <- mean(abs(residuos), na.rm = TRUE)  # MAD
+    mape <- mean(abs(residuos / consumo_real), na.rm = TRUE) * 100  # MAPE (%)
+    rmse <- sqrt(mean(residuos^2, na.rm = TRUE))  # RMSE
+    std_residuos <- sd(residuos, na.rm = TRUE)  # Desviación estándar
+    bias <- mean(residuos, na.rm = TRUE)  # Bias
+    
+    return(c(MAD = mad, MAPE = mape, RMSE = rmse, STD_Residuos = std_residuos, Bias = bias))
+  }
+  
+  # Calcular métricas para cada modelo
+  metricas_total <- calcular_metricas_modelo(datos$residuo_total, datos$consumo)
+  metricas_cluster <- calcular_metricas_modelo(datos$residuo_cluster, datos$consumo)
+  metricas_cluster_editado <- calcular_metricas_modelo(datos$residuo_cluster_editado, datos$consumo)
+  
+  # Crear tabla de comparación
+  tabla_resultados <- data.frame(
+    Modelo = c("Promedio Total", "Promedio Cluster", "Promedio Cluster Editado"),
+    MAD = c(metricas_total["MAD"], metricas_cluster["MAD"], metricas_cluster_editado["MAD"]),
+    MAPE = c(metricas_total["MAPE"], metricas_cluster["MAPE"], metricas_cluster_editado["MAPE"]),
+    RMSE = c(metricas_total["RMSE"], metricas_cluster["RMSE"], metricas_cluster_editado["RMSE"]),
+    STD_Residuos = c(metricas_total["STD_Residuos"], metricas_cluster["STD_Residuos"], metricas_cluster_editado["STD_Residuos"]),
+    Bias = c(metricas_total["Bias"], metricas_cluster["Bias"], metricas_cluster_editado["Bias"])
+  )
+  
+  return(tabla_resultados)
+}
+
+# Uso:
+tabla_metricas <- calcular_metricas(datos_lb)
+print(tabla_metricas)
+```
+
+grafico de rsiduos
+
+boxplots
+
+```{r}
+library(ggplot2)
+
+# Función para generar boxplots de residuos
+crear_boxplots_residuos <- function(datos_lb) {
+  
+  # Calcular residuos para cada modelo
+  datos_residuos <- datos_lb %>%
+    mutate(
+      residuo_total = consumo - promedio_total,
+      residuo_cluster = consumo - promedio_cluster,
+      residuo_cluster_editado = consumo - promedio_cluster_editado
+    ) %>%
+    pivot_longer(
+      cols = c(residuo_total, residuo_cluster, residuo_cluster_editado),
+      names_to = "modelo",
+      values_to = "residuo"
+    )
+  
+  # Renombrar etiquetas para mayor claridad en el gráfico
+  datos_residuos$modelo <- factor(datos_residuos$modelo, 
+                                  levels = c("residuo_total", "residuo_cluster", "residuo_cluster_editado"),
+                                  labels = c("Promedio Total", "Promedio por Cluster", "Promedio por Cluster Editado"))
+  
+  # Crear el gráfico
+  ggplot(datos_residuos, aes(x = modelo, y = residuo, fill = modelo)) +
+    geom_boxplot(outlier.alpha = 0.5) +
+    scale_fill_manual(values = c("#1F77B4", "#FF7F0E", "#2CA02C")) +  # Colores formales y equilibrados
+    labs(title = "Distribución de Residuos por Modelo",
+         x = "Modelo",
+         y = "Residuo") +
+    theme_minimal() +
+    theme(legend.position = "none",
+          plot.title = element_text(hjust = 0.5, face = "bold"))
+}
+
+# Uso:
+crear_boxplots_residuos(datos_lb)
+
+```
+
+```{r}
+calcular_estadisticos_residuos <- function(datos_lb) {
+  library(dplyr)
+  library(moments)  # Para skewness y kurtosis
+  
+  calcular_estadisticas <- function(residuos) {
+    tibble(
+      Min = min(residuos, na.rm = TRUE),
+      Q1 = quantile(residuos, 0.25, na.rm = TRUE),
+      Mediana = median(residuos, na.rm = TRUE),
+      Q3 = quantile(residuos, 0.75, na.rm = TRUE),
+      Max = max(residuos, na.rm = TRUE),
+      IQR = IQR(residuos, na.rm = TRUE),
+      SD = sd(residuos, na.rm = TRUE),
+      Sesgo = skewness(residuos, na.rm = TRUE),
+      Curtosis = kurtosis(residuos, na.rm = TRUE)
+    )
+  }
+  
+  datos_residuos <- datos_lb %>%
+    mutate(
+      residuos_total = consumo - promedio_total,
+      residuos_cluster = consumo - promedio_cluster,
+      residuos_cluster_editado = consumo - promedio_cluster_editado
+    )
+  
+  estadisticas <- bind_rows(
+    calcular_estadisticas(datos_residuos$residuos_total) %>% mutate(Modelo = "Promedio Total"),
+    calcular_estadisticas(datos_residuos$residuos_cluster) %>% mutate(Modelo = "Promedio Cluster"),
+    calcular_estadisticas(datos_residuos$residuos_cluster_editado) %>% mutate(Modelo = "Promedio Cluster Editado")
+  )
+  
+  return(estadisticas %>% select(Modelo, everything()))
+}
+
+# Uso:
+estadisticas_residuos <- calcular_estadisticos_residuos(datos_lb)
+print(estadisticas_residuos)
+
+```
+
+residuos
+
+```{r}
+
+library(ggplot2)
+
+# Función para graficar el análisis de residuos (dispersión)
+graficar_residuos_dispersion <- function(datos_lb) {
+  datos_residuos <- datos_lb %>%
+    mutate(
+      residuo_total = consumo - promedio_total,
+      residuo_cluster = consumo - promedio_cluster,
+      residuo_cluster_editado = consumo - promedio_cluster_editado
+    )
+  
+  # Crear los gráficos de dispersión
+  g1 <- ggplot(datos_residuos, aes(x = promedio_total, y = residuo_total)) +
+    geom_point(alpha = 0.5, color = "#1b9e77") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+    ggtitle("Residuos vs. Predicción (Promedio Total)") +
+    theme_minimal()
+  
+  g2 <- ggplot(datos_residuos, aes(x = promedio_cluster, y = residuo_cluster)) +
+    geom_point(alpha = 0.5, color = "#d95f02") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+    ggtitle("Residuos vs. Predicción (Promedio por Cluster)") +
+    theme_minimal()
+  
+  g3 <- ggplot(datos_residuos, aes(x = promedio_cluster_editado, y = residuo_cluster_editado)) +
+    geom_point(alpha = 0.5, color = "#7570b3") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+    ggtitle("Residuos vs. Predicción (Promedio por Cluster Editado)") +
+    theme_minimal()
+  
+  return(g1 + g2 + g3)
+}
+
+# Uso:
+graficar_residuos_dispersion(datos_lb)
+
+
+
+```
+
+```{r}
+library(ggplot2)
+library(patchwork)  # Para combinar gráficos
+
+graficar_analisis_residuos <- function(datos) {
+  # Calcular residuos
+  datos <- datos %>%
+    mutate(
+      residuo_total = consumo - promedio_total,
+      residuo_cluster = consumo - promedio_cluster,
+      residuo_cluster_editado = consumo - promedio_cluster_editado
+    )
+  
+  # Gráfico de residuos vs. valores predichos
+  p1 <- ggplot(datos, aes(x = promedio_total, y = residuo_total)) +
+    geom_point(alpha = 0.5, color = "blue") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    labs(title = "Residuos vs Promedio Total", x = "Predicción (Promedio Total)", y = "Residuos") +
+    theme_minimal()
+  
+  p2 <- ggplot(datos, aes(x = promedio_cluster, y = residuo_cluster)) +
+    geom_point(alpha = 0.5, color = "green") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    labs(title = "Residuos vs Promedio por Cluster", x = "Predicción (Promedio Cluster)", y = "Residuos") +
+    theme_minimal()
+  
+  p3 <- ggplot(datos, aes(x = promedio_cluster_editado, y = residuo_cluster_editado)) +
+    geom_point(alpha = 0.5, color = "purple") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    labs(title = "Residuos vs Promedio Cluster Editado", x = "Predicción (Promedio Cluster Editado)", y = "Residuos") +
+    theme_minimal()
+  
+  # Gráfico de residuos vs. valores reales
+  p4 <- ggplot(datos, aes(x = consumo, y = residuo_total)) +
+    geom_point(alpha = 0.5, color = "blue") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    labs(title = "Residuos vs Consumo Real (Total)", x = "Consumo Real", y = "Residuos") +
+    theme_minimal()
+  
+  p5 <- ggplot(datos, aes(x = consumo, y = residuo_cluster)) +
+    geom_point(alpha = 0.5, color = "green") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    labs(title = "Residuos vs Consumo Real (Cluster)", x = "Consumo Real", y = "Residuos") +
+    theme_minimal()
+  
+  p6 <- ggplot(datos, aes(x = consumo, y = residuo_cluster_editado)) +
+    geom_point(alpha = 0.5, color = "purple") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    labs(title = "Residuos vs Consumo Real (Cluster Editado)", x = "Consumo Real", y = "Residuos") +
+    theme_minimal()
+
+  # Combinar gráficos
+  p_final <- (p1 + p2 + p3) / (p4 + p5 + p6)
+  return(p_final)
+}
+
+# Uso:
+graficar_analisis_residuos(datos_lb)
+
+```
 
 ## Observaciones Generales

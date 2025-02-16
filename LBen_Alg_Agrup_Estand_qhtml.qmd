@@ -2163,19 +2163,27 @@ datatable(tabla_franjas, options = list(pageLength = 20, scrollX = TRUE))
 
 ```
 
+Descarga de archivo de franjas
+
+```{r}
+# Exportar a Excel
+write.xlsx(tabla_franjas, "tabla_franjas.xlsx")
+
+# Mensaje de instrucciones formateado
+cat("\n--------------------------------------------\n",
+    "✅ Archivo 'tabla_franjas.xlsx' guardado con éxito.\n",
+    "✏️  Por favor, edítalo según sea necesario y guárdalo de nuevo con el nombre:\n",
+    "   ➡️  'tabla_franjas_editado.xlsx'\n",
+    "Luego, ejecuta el siguiente paso para continuar con el análisis.\n",
+    "--------------------------------------------\n")
+```
+
+tabla franjas umbral
+
 ```{r}
 #Generar la tabla
 tabla_franjas_umbral <- consolidar_franjas_horarias(tabla_completa_umbral)
 datatable(tabla_franjas_umbral, options = list(pageLength = 20, scrollX = TRUE))
-```
-
-```{r}
-# # Exportar a Excel
-# write.xlsx(tabla_franjas, "tabla_franjas.xlsx")
-# 
-# print("Archivo tabla_franjas.xlsx guardado. Edítalo y luego cárgalo de nuevo.")
-
-
 ```
 
 #### Interpretación de grupos
@@ -2184,9 +2192,416 @@ Observaciones generales de analisis exploratorio e interpretacion de grupos
 
 ## Edición o Ajuste de Grupos (si aplica)
 
+### Carga de Datos Editados
+
+describir la accion de descarga, edicion, carga y nueva ejecucion de la metodologia.
+
+tabla franjas editadas
+
+```{r}
+# Cargar la tabla editada
+
+# Cargar la tabla editada si existe, si no, usar la original
+library(DT)
+library(openxlsx)
+
+archivo_original <- "tabla_franjas.xlsx"
+archivo_editado <- "tabla_franjas_editado.xlsx"
+
+if (file.exists(archivo_editado)) {
+  tabla_franjas_editado <- read.xlsx(archivo_editado)
+  cat("✅ Se ha cargado el archivo editado:", archivo_editado, "\n")
+  cat("⚠ Verificar que el archivo editado corresponda con tu proyecto.\n")
+} else {
+  tabla_franjas_editado <- read.xlsx(archivo_original)
+  cat("⚠ No se encontró el archivo editado:", archivo_editado, "\n")
+  cat("🔄 Se ha cargado el archivo original:", archivo_original, "\n")
+}
+
+# Revisar que se haya cargado correctamente
+# print(head(tabla_franjas_editado))
+
+# Mostrar la tabla interactiva
+datatable(tabla_franjas_editado, options = list(pageLength = 20, scrollX = TRUE))
+
+```
+
+tabla completa franjas editadas
+
+```{r}
+
+# convertir tabla_franjas_editado en tabla_franjas_expandidas (parecido a tabla_completa)
+procesar_horarios <- function(horario_texto) {
+  if (is.na(horario_texto) || horario_texto == "") {
+    return(integer(0))  # Devuelve una lista vacía si está vacío o NA
+  }
+  horarios <- unlist(strsplit(horario_texto, ", "))  # Separar por comas
+  horas <- unlist(lapply(horarios, function(x) {
+    if (grepl("-", x)) {  # Si es un rango (ej: "0-8")
+      lims <- as.numeric(unlist(strsplit(x, "-")))
+      return(seq(lims[1], lims[2]))  # Genera la secuencia de horas
+    } else {
+      return(as.numeric(x))  # Si es un número suelto
+    }
+  }))
+  return(horas)
+}
+
+expandir_franjas <- function(tabla_franjas_editado) {
+  tabla_expandida <- tabla_franjas_editado %>%
+    rowwise() %>%
+    mutate(horas_expandida = list(procesar_horarios(franja_horaria))) %>%
+    unnest(horas_expandida) %>%
+    rename(hora = horas_expandida) %>%
+    select(dia_sem, hora, cluster_dominante) %>%
+    arrange(match(dia_sem, c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")), hora)
+  
+  return(tabla_expandida)
+}
+
+# Uso de la función
+tabla_franjas_expandidas <- expandir_franjas(tabla_franjas_editado)
+
+# Verificación
+datatable(tabla_franjas_expandidas)
+
+```
+
+### matriz franjas editadas
+
+```{r}
+
+# Función para generar la matriz de clusters basada en franjas editadas
+generar_matriz_clusters_editadas <- function(tabla_franjas_expandidas) {
+
+  # Asegurar que los días de la semana estén en el orden correcto
+  tabla_franjas_expandidas <- tabla_franjas_expandidas %>%
+    mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")),
+           cluster_dominante = as.factor(cluster_dominante))
+
+  # Obtener los colores consistentes usando la función auxiliar
+  colores_clusters <- obtener_colores_clusters(tabla_franjas_expandidas)
+
+  # Crear la matriz visual con ggplot
+  matriz <- ggplot(tabla_franjas_expandidas, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
+    geom_tile(color = "white") +
+    scale_fill_manual(values = colores_clusters) +  # Usar colores generados automáticamente
+    labs(title = "Matriz de Clusters Basada en Franjas Horarias Editadas",
+         subtitle = "Clusters asignados manualmente a cada combinación de día y hora",
+         x = "Hora del Día",
+         y = "Día de la Semana",
+         fill = "Cluster Editado") +
+    theme_minimal()
+
+  print(matriz)  # Mostrar el gráfico
+}
+
+# Llamar la función con la tabla de franjas editadas
+generar_matriz_clusters_editadas(tabla_franjas_expandidas)
+
+```
+
+metodo anterior con 5 colores
+
+```{r}
+
+
+# # Función para generar la matriz de clusters basada en franjas editadas
+# generar_matriz_clusters_editadas <- function(tabla_franjas_expandidas) {
+# 
+#   # Convertir la tabla en formato largo para la matriz visual
+#   tabla_franjas_expandidas <- tabla_franjas_expandidas %>%
+#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
+# 
+#   # Crear la matriz visual con ggplot
+#   matriz <- ggplot(tabla_franjas_expandidas, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
+#     geom_tile(color = "white") +
+#     scale_fill_manual(values = c("1" = "red", "2" = "blue", "3" = "green", "4" = "purple", "5" = "orange", "Mixto" = "gray")) +
+#     labs(title = "Matriz de Clusters Basada en Franjas Horarias Editadas",
+#          subtitle = "Clusters asignados manualmente a cada combinación de día y hora",
+#          x = "Hora del Día",
+#          y = "Día de la Semana",
+#          fill = "Cluster Editado") +
+#     theme_minimal()
+# 
+#   print(matriz)  # Mostrar el gráfico
+# }
+# 
+# # Llamar la función con la tabla de franjas editadas
+# generar_matriz_clusters_editadas(tabla_franjas_expandidas)
+```
+
+verificacion de correcta edicion de franjas horarias (evitar faltantes, duplicados, etc)
+
+```{r}
+#validar la edicion de las franjas horarias (ya con la tabla expandida pero antes de fusionar con datos clusterizados)
+
+validar_franjas_editadas <- function(tabla_franjas_expandidas) {
+  # Verificar que las horas estén dentro del rango 0-23
+  if (any(tabla_franjas_expandidas$hora < 0 | tabla_franjas_expandidas$hora > 23)) {
+    stop("❌ Error: Se encontraron horas fuera del rango permitido (0-23).")
+  }
+  
+  # Buscar solapamientos: mismo día y hora con diferentes clusters
+  duplicados <- tabla_franjas_expandidas %>%
+    group_by(dia_sem, hora) %>%
+    summarise(n_clusters = n_distinct(cluster_dominante), .groups = "drop") %>%
+    filter(n_clusters > 1)
+  
+  if (nrow(duplicados) > 0) {
+    print("❌ Error: Se detectaron solapamientos en la asignación de clusters.")
+    print(duplicados)
+    stop("Por favor, revisa la edición de franjas horarias y corrige los solapamientos.")
+  }
+  
+  # Detectar horas sin asignación de cluster en cada día
+  horas_completas <- expand.grid(
+    dia_sem = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"),
+    hora = 0:23
+  )
+  
+  # Unir con la tabla editada para detectar horas faltantes
+  tabla_completa <- left_join(horas_completas, tabla_franjas_expandidas, by = c("dia_sem", "hora"))
+  
+  horas_faltantes <- tabla_completa %>% filter(is.na(cluster_dominante))
+  
+  if (nrow(horas_faltantes) > 0) {
+    print("❌ Error: Se detectaron horas sin asignación de cluster en los siguientes casos:")
+    print(horas_faltantes)
+    stop("Por favor, completa todas las horas con un cluster válido.")
+  }
+  
+  print("✅ Validación exitosa: No se encontraron errores en las franjas horarias.")
+}
+
+# Ejecutar validación antes de generar la matriz
+validar_franjas_editadas(tabla_franjas_expandidas)
+```
+
 ### Validación de grupos editado
 
+validacion de los grupos con las franjas editadas
+
+Preparacion datos editados para validacion estadistica y exploracion
+
+```{r}
+# union de tabla_franjas_expandidas con datos_clusterizados para formar datos_clusterizados_editado
+
+# Unir datos_clusterizados con tabla_franjas_expandidas usando dia_sem + hora
+datos_clusterizados_editado <- datos_clusterizados %>%
+  left_join(tabla_franjas_expandidas, by = c("dia_sem", "hora")) %>%
+  mutate(cluster_editado = ifelse(is.na(cluster_dominante), as.character(cluster), as.character(cluster_dominante))) %>%
+  select(-cluster_dominante)  # Eliminamos la columna auxiliar
+
+# Verificar la tabla final
+datatable(datos_clusterizados_editado)
+```
+
+Prueba de Normalidad y de Homocedasticidad a grupos editados
+
+```{r}
+#   Validacion de CLuster Editado (Metodos Estadisticos) #####
+
+# Prueba de Normalidad y de Homocedasticidad #####
+#(para selecccionar: ANOVA o Kruskal-Wallis)
+
+library(dplyr)
+library(car)  # Para la prueba de Levene
+library(ggpubr)  # Para Shapiro-Wilk
+
+validar_supuestos_clusters_editado <- function(datos_clusterizados_editado) {
+  resultados <- list()
+  
+  # Verificar normalidad por cluster
+  normalidad <- datos_clusterizados_editado %>% 
+    group_by(cluster_editado) %>% 
+    summarise(p_valor = shapiro.test(consumo)$p.value) %>% 
+    mutate(resultado = ifelse(p_valor > 0.05, "Normal", "No Normal"))
+  
+  # Verificar homocedasticidad
+  levene_pvalor <- leveneTest(consumo ~ cluster_editado, data = datos_clusterizados_editado)$"Pr(>F)"[1]
+  homocedasticidad <- ifelse(levene_pvalor > 0.05, "Varianzas Iguales", "Varianzas Diferentes")
+  
+  # Determinar prueba estadística a utilizar
+  if (all(normalidad$resultado == "Normal") & homocedasticidad == "Varianzas Iguales") {
+    prueba_recomendada <- "ANOVA"
+  } else {
+    prueba_recomendada <- "Kruskal-Wallis"
+  }
+  
+  # Crear mensaje para el usuario
+  mensaje <- paste0(
+    "Resultados de las pruebas:\n",
+    "- Normalidad por cluster: ", paste(normalidad$cluster_editado, normalidad$resultado, sep = " -> ", collapse = ", "), "\n",
+    "- Homocedasticidad (Levene test): ", homocedasticidad, "\n",
+    "\nRecomendación: Se sugiere usar la prueba de ", prueba_recomendada, "."
+  )
+  
+  return(mensaje)
+}
+
+# Ejemplo de uso
+resultado_editado <- validar_supuestos_clusters_editado(datos_clusterizados_editado)
+cat(resultado_editado)
+```
+
+Prueba de Anova o de Kruskal para validacion de grupos editados
+
+```{r}
+# Prueba de Anova o de Kruskal para validacion de cluster editado#####
+
+realizar_prueba_clusters_editado <- function(datos, metodo = "ANOVA") {
+  library(dplyr)
+  library(tidyr)
+  library(ggpubr)
+  
+  # Verificar que el método ingresado sea válido
+  if (!metodo %in% c("ANOVA", "Kruskal-Wallis")) {
+    stop("Método no válido. Use 'ANOVA' o 'Kruskal-Wallis'.")
+  }
+  
+  # Convertir cluster a factor si no lo es
+  datos$cluster_editado <- as.factor(datos$cluster_editado)
+  
+  resultado <- NULL
+  mensaje <- ""
+  
+  if (metodo == "ANOVA") {
+    # ANOVA asume normalidad y homocedasticidad, se recomienda usar solo si las pruebas previas lo confirman
+    prueba_anova <- aov(consumo ~ cluster_editado, data = datos)
+    resultado <- summary(prueba_anova)
+    p_valor <- summary(prueba_anova)[[1]][["Pr(>F)"]][1]
+    
+    if (p_valor < 0.05) {
+      mensaje <- "El ANOVA indica diferencias significativas entre los clusters (p < 0.05). Se recomienda una prueba post hoc como Tukey HSD para identificar diferencias específicas."
+    } else {
+      mensaje <- "El ANOVA no detectó diferencias significativas entre los clusters (p >= 0.05). No se requiere prueba post hoc."
+    }
+  } else {
+    # Kruskal-Wallis para datos no normales o heterocedásticos
+    prueba_kruskal <- kruskal.test(consumo ~ cluster_editado, data = datos)
+    resultado <- prueba_kruskal
+    p_valor <- prueba_kruskal$p.value
+    
+    if (p_valor < 0.05) {
+      mensaje <- "La prueba de Kruskal-Wallis indica diferencias significativas entre los clusters (p < 0.05). Se recomienda una prueba post hoc como Dunn para comparaciones específicas."
+    } else {
+      mensaje <- "La prueba de Kruskal-Wallis no detectó diferencias significativas entre los clusters (p >= 0.05). No se requiere prueba post hoc."
+    }
+  }
+  
+  return(list(Resultados = resultado, Interpretación = mensaje))
+}
+
+# Ejemplo de uso
+resultado_prueba_editado <- realizar_prueba_clusters_editado(datos_clusterizados_editado, metodo = "Kruskal-Wallis")
+print(resultado_prueba_editado$Resultados)
+cat(resultado_prueba_editado$Interpretación)
+```
+
+Prueba Posthoc Dunn grupos editados
+
+```{r}
+# Prueba Posthoc Dunn #####
+
+library(FSA)  # Para la prueba de Dunn
+library(dplyr)
+
+realizar_prueba_posthoc_editado <- function(datos_clusterizados_editado) {
+  # Verificar si hay más de 2 clusters
+  num_clusters <- length(unique(datos_clusterizados_editado$cluster_editado))
+  
+  if (num_clusters < 2) {
+    return("La prueba post hoc no es necesaria, ya que solo hay un cluster.")
+  }
+  
+  # Aplicar la prueba de Dunn con corrección de Bonferroni
+  prueba_dunn <- dunnTest(consumo ~ cluster_editado, data = datos_clusterizados_editado, method = "bonferroni")
+  
+  # Extraer los resultados
+  resultados <- prueba_dunn$res
+  
+  # Formatear salida
+  interpretacion <- resultados %>% 
+    mutate(Interpretación = ifelse(P.adj < 0.05, "Diferencia significativa", "No significativa"))
+  
+  return(list(Resultados = resultados, Interpretación = interpretacion))
+}
+
+# Prueba de la función
+resultado_posthoc_editado <- realizar_prueba_posthoc_editado(datos_clusterizados_editado)
+
+#print(resultado_posthoc_editado$Resultados)
+#print(resultado_posthoc_editado$Interpretación)
+
+datatable((resultado_posthoc_editado$Interpretación))
+```
+
 ### Exploración e interpretación de grupos editado
+
+boxplot
+
+```{r, fig.width=10, fig.height=4}
+
+# --- Función para Graficar Boxplots ---
+graficar_boxplot_clusters_editado <- function(datos_clusterizados_editado, alpha_puntos = 0.5, tamaño_puntos = 2) {
+  if (!"cluster_editado" %in% colnames(datos_clusterizados_editado)) {
+    stop("El dataset no contiene una columna llamada 'cluster_editado'.")
+  }
+
+  colores_finales <- obtener_colores_clusters(datos_clusterizados)  # Obtener colores fijos
+
+  p <- ggplot(datos_clusterizados_editado, aes(x = factor(cluster_editado), y = consumo, fill = factor(cluster_editado))) +
+    geom_boxplot(alpha = 0.6, outlier.color = "black", outlier.shape = 16) +
+    geom_jitter(aes(color = factor(cluster_editado)), width = 0.05, alpha = alpha_puntos, size = tamaño_puntos) +
+    scale_fill_manual(values = colores_finales) +
+    scale_color_manual(values = colores_finales) +
+    theme_minimal(base_size = 12) +
+    labs(title = "Boxplots del Consumo por Cluster", x = "Cluster_editado", y = "Consumo") +
+    theme(legend.position = "none")
+
+  print(p)
+}
+
+# 📌 **Ejemplo de uso**
+graficar_boxplot_clusters_editado(datos_clusterizados_editado, alpha_puntos = 0.3, tamaño_puntos = 2)
+
+```
+
+Estadisticos boxplots editados
+
+```{r}
+library(dplyr)
+library(DT)
+
+calcular_estadisticas_clusters_editado <- function(datos_clusterizados_editado) {
+  # Verificar si el dataset tiene la columna "cluster"
+  if (!"cluster_editado" %in% colnames(datos_clusterizados_editado)) {
+    stop("El dataset no contiene una columna llamada 'cluster_editado'. Asegúrate de que los datos estén correctamente clusterizados.")
+  }
+  
+  # Calcular estadísticas por cluster
+  resumen_clusters_editado <- datos_clusterizados_editado %>%
+    group_by(cluster_editado) %>%
+    summarise(
+      Min = min(consumo, na.rm = TRUE),
+      Max = max(consumo, na.rm = TRUE),
+      Promedio = mean(consumo, na.rm = TRUE),
+      Mediana = median(consumo, na.rm = TRUE),
+      SD = sd(consumo, na.rm = TRUE),
+      IQR = IQR(consumo, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Mostrar la tabla con formato interactivo
+  datatable(resumen_clusters_editado, options = list(pageLength = 5))
+}
+
+# 📌 **Ejemplo de uso**
+calcular_estadisticas_clusters_editado(datos_clusterizados_editado)
+```
+
+Observaciones generales del analisis exploratorio e interpretacion de los datos editados
 
 ## Modelos de LB
 

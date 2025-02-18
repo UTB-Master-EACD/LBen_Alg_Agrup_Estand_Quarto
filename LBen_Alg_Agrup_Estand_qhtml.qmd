@@ -27,21 +27,24 @@ Descripcion del analisis
 Listado de librerias utilizadas
 
 ```{r}
-library(readr)
-library(dplyr)
-library(lubridate)
-library(DT)
-library(ggplot2)
-library(tidyr)
-library(factoextra)
-library(cluster)
-library(dbscan)
-library(openxlsx)
-library(car)
-library(ggpubr)
-library(FSA)
-library(tidyverse)
-library(e1071)
+library(readr)  # Para importar y exportar archivos de texto y CSV de manera eficiente
+library(dplyr)  # Para manipulación y transformación de datos
+library(lubridate)  # Para trabajar con fechas y horas de forma sencilla
+library(DT)  # Para crear y visualizar tablas interactivas en Shiny y R Markdown
+library(ggplot2)  # Para visualización de datos con gráficos personalizables
+library(tidyr)  # Para limpieza y reestructuración de datos (reshape, pivot, etc.)
+library(factoextra)  # Para visualización y análisis de clustering
+library(cluster)  # Para métodos de clustering como k-means y aglomerativos
+library(dbscan)  # Para clustering basado en densidad (DBSCAN)
+library(openxlsx)  # Para leer y escribir archivos Excel (.xlsx) sin depender de Java
+library(car)  # Para análisis estadístico, incluye la prueba de Levene para homogeneidad de varianzas
+library(ggpubr)  # Para facilitar la creación de gráficos y pruebas estadísticas como Shapiro-Wilk
+library(FSA)  # Para análisis de datos biológicos y la prueba de Dunn para comparaciones múltiples
+library(tidyverse)  # Conjunto de paquetes para manipulación, visualización y modelado de datos
+library(e1071)  # Para algoritmos de machine learning, incluyendo SVM y Naïve Bayes
+library(moments)  # Para calcular asimetría (skewness) y curtosis (kurtosis)
+library(patchwork)  # Para combinar múltiples gráficos de ggplot2 en una sola visualización
+library(scales)  # Para manipulación de escalas y colores en gráficos ggplot2
 
 ```
 
@@ -260,7 +263,7 @@ datatable( analisis_consumo )
 
 (Analisis del comportamiento del consumo, se identifican 2 zonas alta y baja carga)
 
-Comparativo General vs día
+Distribución General
 
 ```{r}
 library(ggplot2)
@@ -383,7 +386,7 @@ graficar_general_vs_dia <- function(datos, dia) {
     geom_line(color = "steelblue", size = 1.2) +
     geom_point(color = "black") +
     theme_minimal(base_size = 14) +
-    labs(title = "General",
+    labs(title = "Promedio General",
          x = "Hora del día", y = "Consumo Promedio") +
     scale_x_continuous(breaks = 0:23) +
     theme(plot.title = element_text(size = 14, hjust = 0.5))
@@ -485,8 +488,6 @@ graficar_boxplot <- function(datos, width = 2, height = 2) {
   return(p)  # Retornar el gráfico
 }
 
-# Llamar la función con tamaño ajustable
-# resultados_boxplot <- graficar_boxplot(datos_limpiados, width = 2, height = 2)
 
 
 
@@ -1285,86 +1286,6 @@ graficar_serie_temporal(datos_clusterizados, n_datos = 7*24)
 
 ```
 
-```{r, fig.width=10, fig.height=4}
-
-# --- Función para Graficar Series Temporales ---
-#version anterior
-
-
-# library(ggplot2)
-# library(dplyr)
-# library(lubridate)
-# library(patchwork)  # Para organizar los gráficos en una fila
-# 
-# graficar_serie_temporal <- function(datos_clusterizados, n_datos = NULL) {
-#   # Crear variable fecha_hora combinando año, mes, día y hora
-#   datos_clusterizados <- datos_clusterizados %>%
-#     mutate(fecha_hora = make_datetime(año, as.numeric(mes), dia, hora)) %>%
-#     arrange(fecha_hora)  # Ordenar cronológicamente
-# 
-#   # Filtrar si se especifica un número de datos a graficar
-#   if (!is.null(n_datos)) {
-#     datos_clusterizados <- datos_clusterizados %>% slice_head(n = n_datos)
-#   }
-#   
-#   # Obtener los clusters únicos en los datos
-#   clusters_unicos <- sort(unique(datos_clusterizados$cluster))
-#   
-#   # Definir colores específicos para los primeros dos clusters
-#   colores_fijos <- c("1" = "blue", "2" = "red")  # Azul y rojo para los clusters 1 y 2
-#   
-#   # Si hay más clusters, asignarles colores dinámicos
-#   if (length(clusters_unicos) > 2) {
-#     clusters_adicionales <- setdiff(clusters_unicos, c(1, 2))
-#     colores_extra <- scales::hue_pal()(length(clusters_adicionales))  # Genera colores para los demás
-#     nombres_clusters_extra <- as.character(clusters_adicionales)
-#     nombres_colores_extra <- setNames(colores_extra, nombres_clusters_extra)
-#     
-#     # Combinar los colores fijos con los adicionales
-#     colores_finales <- c(colores_fijos, nombres_colores_extra)
-#   } else {
-#     colores_finales <- colores_fijos
-#   }
-# 
-#   # Personalización de tamaños
-#   tamaño_titulo <- 14
-#   tamaño_ejes <- 12
-#   tamaño_leyenda <- 12
-# 
-#   # Gráfico 1: Serie temporal en negro (sin cluster)
-#   p1 <- ggplot(datos_clusterizados, aes(x = fecha_hora, y = consumo)) +
-#     geom_line(color = "black", size = 1.2) +
-#     labs(title = "Serie Temporal de Consumo (Sin Cluster)", x = "Fecha y Hora", y = "Consumo") +
-#     theme_minimal(base_size = 12) +
-#     theme(
-#       plot.title = element_text(size = tamaño_titulo),
-#       axis.title = element_text(size = tamaño_ejes),
-#       axis.text = element_text(size = tamaño_ejes)
-#     )
-#   
-#   # Gráfico 2: Serie temporal con color por cluster
-#   p2 <- ggplot(datos_clusterizados, aes(x = fecha_hora, y = consumo, color = factor(cluster), group = 1)) +
-#     geom_line(size = 1.2) +
-#     scale_color_manual(values = colores_finales) +  # Usar los colores definidos
-#     labs(title = "Serie Temporal de Consumo (Por Cluster)", x = "Fecha y Hora", y = "Consumo", color = "Cluster") +
-#     theme_minimal(base_size = 12) +
-#     theme(
-#       plot.title = element_text(size = tamaño_titulo),
-#       axis.title = element_text(size = tamaño_ejes),
-#       axis.text = element_text(size = tamaño_ejes),
-#       legend.text = element_text(size = tamaño_leyenda),
-#       legend.title = element_text(size = tamaño_leyenda)
-#     )
-#   
-#   # Unir los dos gráficos en una sola fila
-#   p1 + p2  # Patchwork los coloca en la misma fila
-# }
-# 
-# # 🔹 **Ejemplo de uso**:  
-# graficar_serie_temporal(datos_clusterizados, n_datos = 7*24)
-
-```
-
 #### boxplots
 
 ```{r, fig.width=10, fig.height=4}
@@ -1391,69 +1312,6 @@ graficar_boxplot_clusters <- function(datos_clusterizados, alpha_puntos = 0.5, t
 
 # 📌 **Ejemplo de uso**
 graficar_boxplot_clusters(datos_clusterizados, alpha_puntos = 0.3, tamaño_puntos = 2)
-```
-
-```{r, fig.width=10, fig.height=4}
-
-#version anterior
-
-# library(ggplot2)
-# library(dplyr)
-# 
-# graficar_boxplot_clusters <- function(datos_clusterizados, alpha_puntos = 0.5, tamaño_puntos = 2) {
-#   # Verificar si el dataset tiene la columna "cluster"
-#   if (!"cluster" %in% colnames(datos_clusterizados)) {
-#     stop("El dataset no contiene una columna llamada 'cluster'. Asegúrate de que los datos estén correctamente clusterizados.")
-#   }
-#   
-#   # Obtener los clusters únicos ordenados
-#   clusters_unicos <- sort(unique(datos_clusterizados$cluster))
-#   
-#   # Definir colores específicos para los primeros dos clusters
-#   colores_fijos <- c("1" = "blue", "2" = "red")  # Azul y rojo para los clusters 1 y 2
-#   
-#   # Si hay más clusters, asignarles colores dinámicos
-#   if (length(clusters_unicos) > 2) {
-#     clusters_adicionales <- setdiff(clusters_unicos, c(1, 2))
-#     colores_extra <- scales::hue_pal()(length(clusters_adicionales))  # Genera colores para los demás
-#     nombres_clusters_extra <- as.character(clusters_adicionales)
-#     nombres_colores_extra <- setNames(colores_extra, nombres_clusters_extra)
-#     
-#     # Combinar los colores fijos con los adicionales
-#     colores_finales <- c(colores_fijos, nombres_colores_extra)
-#   } else {
-#     colores_finales <- colores_fijos
-#   }
-# 
-#   # Personalización de tamaños
-#   tamaño_titulo <- 14
-#   tamaño_ejes <- 12
-# 
-#   # Crear el gráfico de boxplot con dispersión
-#   p <- ggplot(datos_clusterizados, aes(x = factor(cluster), y = consumo, fill = factor(cluster))) +
-#     geom_boxplot(alpha = 0.6, outlier.color = "black", outlier.shape = 16) +  # Boxplot
-#     geom_jitter(aes(color = factor(cluster)), width = 0.05, alpha = alpha_puntos, size = tamaño_puntos) +  # Dispersión
-#     scale_fill_manual(values = colores_finales) +  # Aplicar colores a los boxplots
-#     scale_color_manual(values = colores_finales) +  # Aplicar colores a los puntos
-#     theme_minimal(base_size = 12) +
-#     labs(title = "Boxplots del Consumo por Cluster",
-#          x = "Cluster",
-#          y = "Consumo",
-#          fill = "Cluster",
-#          color = "Cluster") +
-#     theme(
-#       plot.title = element_text(size = tamaño_titulo),
-#       axis.title = element_text(size = tamaño_ejes),
-#       axis.text = element_text(size = tamaño_ejes),
-#       legend.position = "none"  # Oculta la leyenda para evitar redundancia
-#     )
-#   
-#   print(p)  # Mostrar el gráfico
-# }
-# 
-# # 📌 **Ejemplo de uso**
-# graficar_boxplot_clusters(datos_clusterizados, alpha_puntos = 0.3, tamaño_puntos = 2)
-
 ```
 
 #### estadisticos boxplots
@@ -1614,110 +1472,6 @@ Tabla de probabilidad de pertenencia por dia (seleccionar dia de interes)
 
 ```{r}
 
-# Tabla Probabilidad dia_semana - hora - Clusters (consulta por dia) #####
-
-#solo tabla
-
-# library(ggplot2)
-# library(dplyr)
-# library(tidyr)
-# library(DT)
-# 
-# calcular_probabilidad_por_dia <- function(datos) {
-#   # Obtener nombres de los clusters dinámicamente
-#   cluster_cols <- grep("^cluster_", colnames(datos), value = TRUE)
-#   
-#   # Agrupar por día de la semana y hora, calculando promedio de pertenencia a cada cluster
-#   probabilidad_por_hora <- datos %>%
-#     group_by(dia_sem, hora) %>%
-#     summarise(across(all_of(cluster_cols), mean, na.rm = TRUE), .groups = "drop")
-#   
-#   # Crear una lista para almacenar las tablas
-#   tablas_dias <- list()
-#   
-#   # Generar una tabla DT por cada día de la semana
-#   for (dia in unique(probabilidad_por_hora$dia_sem)) {
-#     tabla_dt <- probabilidad_por_hora %>%
-#       filter(dia_sem == dia) %>%
-#       datatable(options = list(pageLength = 24, scrollX = TRUE),
-#                 caption = paste("Probabilidad de pertenencia por hora -", dia))
-#     
-#     tablas_dias[[as.character(dia)]] <- tabla_dt
-#   }
-#   
-#   return(tablas_dias)
-# }
-# 
-# # Línea de prueba
-# tablas_probabilidad <- calcular_probabilidad_por_dia(datos_con_probabilidad)
-# 
-# # Para visualizar una tabla específica (ejemplo: Lunes)
-# tablas_probabilidad[["martes"]]
-
-
-```
-
-```{r}
-#version anterior de tabla y grafico
-# library(ggplot2)
-# library(dplyr)
-# library(tidyr)
-# library(DT)
-# 
-# # Función para calcular tabla y gráfico de probabilidades por día
-# calcular_probabilidad_por_dia <- function(datos) {
-#   # Obtener nombres de los clusters dinámicamente
-#   cluster_cols <- grep("^cluster_", colnames(datos), value = TRUE)
-#   
-#   # Agrupar por día de la semana y hora, calculando promedio de pertenencia a cada cluster
-#   probabilidad_por_hora <- datos %>%
-#     group_by(dia_sem, hora) %>%
-#     summarise(across(all_of(cluster_cols), mean, na.rm = TRUE), .groups = "drop")
-#   
-#   # Crear una lista para almacenar las tablas y gráficos
-#   resultados <- list()
-#   
-#   # Generar una tabla DT y un gráfico por cada día de la semana
-#   for (dia in unique(probabilidad_por_hora$dia_sem)) {
-#     # Filtrar los datos para el día específico
-#     datos_dia <- probabilidad_por_hora %>% filter(dia_sem == dia)
-#     
-#     # Convertir a formato largo para ggplot
-#     datos_long <- datos_dia %>%
-#       pivot_longer(cols = all_of(cluster_cols), names_to = "Cluster", values_to = "Probabilidad")
-#     
-#     # Crear tabla interactiva
-#     tabla_dt <- datatable(datos_dia, options = list(pageLength = 24, scrollX = TRUE),
-#                           caption = paste("Probabilidad de pertenencia por hora -", dia))
-#     
-#     # Crear gráfico de líneas
-#     grafico <- ggplot(datos_long, aes(x = hora, y = Probabilidad, color = Cluster)) +
-#       geom_line(size = 1) +
-#       geom_point(size = 2) +
-#       scale_x_continuous(breaks = seq(0, 23, by = 1)) +
-#       labs(title = paste("Evolución de Probabilidades -", dia),
-#            x = "Hora del día",
-#            y = "Probabilidad de pertenencia",
-#            color = "Cluster") +
-#       theme_minimal()
-#     
-#     # Almacenar en la lista
-#     resultados[[as.character(dia)]] <- list(tabla = tabla_dt, grafico = grafico)
-#   }
-#   
-#   return(resultados)
-# }
-# 
-# #Línea de prueba
-# resultados_probabilidad <- calcular_probabilidad_por_dia(datos_con_probabilidad)
-# #Para visualizar resultados
-# resultados_probabilidad[["martes"]]$tabla
-# resultados_probabilidad[["martes"]]$grafico
-
-```
-
-```{r}
-
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -1807,211 +1561,6 @@ resultados_probabilidad[["martes"]]$grafico
 #### 
 
 Tabla y matriz de franjas horarias
-
-```{r}
-# matriz dia hora cluster dominante  #####
-# Función para generar tabla y matriz con cluster dominante de cada hora en el dia (semana completa)#####
-# genera una tabla y una matriz con los dias de la semana y las 24h con su cluster dominante absoluto y por % de pertenencia (puede haber mixto si no supera umbral)
-
-
-# library(ggplot2)
-# library(dplyr)
-# library(tidyr)
-# library(DT)
-# 
-# # Función para generar tabla completa con cluster dominante considerando un umbral de probabilidad
-# generar_tabla_probabilidad_completa <- function(datos_probabilidad, umbral_probabilidad = 0.7) {
-#   
-#   # Agrupar por día de la semana y hora, calculando el promedio de probabilidad por cluster
-#   tabla_probabilidad <- datos_probabilidad %>%
-#     group_by(dia_sem, hora) %>%
-#     summarise(across(starts_with("cluster_"), mean, na.rm = TRUE)) %>%
-#     ungroup()
-#   
-#   # Determinar el cluster dominante con el umbral definido
-#   max_probabilidad <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, max)
-#   cluster_dominante <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, 
-#                              function(x) ifelse(max(x) >= umbral_probabilidad, names(x)[which.max(x)], "Mixto"))
-#   
-#   # Limpiar nombres de los clusters
-#   tabla_probabilidad$cluster_dominante <- gsub("cluster_", "", cluster_dominante)
-#   
-#   # Mostrar en formato DT
-#   datatable(tabla_probabilidad, options = list(pageLength = 10, scrollX = TRUE))
-#   
-#   return(tabla_probabilidad)
-# }
-# 
-# # Función para generar matriz de cluster dominante
-# generar_matriz_clusters <- function(tabla_probabilidad) {
-#   
-#   # Convertir la tabla en formato largo para la matriz visual
-#   tabla_probabilidad <- tabla_probabilidad %>%
-#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
-#   
-#   # Crear la matriz visual con ggplot
-#   matriz <- ggplot(tabla_probabilidad, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
-#     geom_tile(color = "white") +
-#     scale_fill_manual(values = c("1" = "red", "2" = "blue", "3" = "green", "4" = "purple", "5" = "orange", "Mixto" = "gray")) +
-#     labs(title = "Matriz de Cluster Dominante por Día y Hora",
-#          x = "Hora del Día",
-#          y = "Día de la Semana",
-#          fill = "Cluster Dominante") +
-#     theme_minimal()
-#   
-#   print(matriz)  # Mostrar el gráfico
-# }
-# 
-# # Ejemplo de uso:
-# tabla_completa_abs <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.5)
-# tabla_completa <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.6)
-# generar_matriz_clusters(tabla_completa_abs)
-# generar_matriz_clusters(tabla_completa)
-
-
-```
-
-```{r}
-# library(ggplot2)
-# library(dplyr)
-# library(tidyr)
-# library(DT)
-# library(scales)  # Para colores hue_pal()
-# 
-# # Función para obtener colores consistentes
-# generar_colores_clusters <- function(tabla_probabilidad) {
-#   clusters_unicos <- unique(tabla_probabilidad$cluster_dominante)
-#   clusters_unicos <- sort(clusters_unicos[clusters_unicos != "Mixto"])  # Ordenar y excluir "Mixto"
-#   num_clusters <- length(clusters_unicos)
-# 
-#   # Definir el color fijo para "Mixto"
-#   colores_fijos <- c("Mixto" = "gray")
-# 
-#   # Generar colores adicionales con hue_pal() para los clusters
-#   colores_extra <- hue_pal()(num_clusters)  # Generar colores distintos
-#   nombres_colores_extra <- setNames(colores_extra, clusters_unicos)
-# 
-#   # Combinar colores fijos con los generados dinámicamente
-#   colores_finales <- c(colores_fijos, nombres_colores_extra)
-#   return(colores_finales)
-# }
-# 
-# # Función para generar tabla completa con cluster dominante considerando un umbral de probabilidad
-# generar_tabla_probabilidad_completa <- function(datos_probabilidad, umbral_probabilidad = 0.7) {
-#   
-#   # Agrupar por día de la semana y hora, calculando el promedio de probabilidad por cluster
-#   tabla_probabilidad <- datos_probabilidad %>%
-#     group_by(dia_sem, hora) %>%
-#     summarise(across(starts_with("cluster_"), mean, na.rm = TRUE)) %>%
-#     ungroup()
-#   
-#   # Determinar el cluster dominante con el umbral definido
-#   max_probabilidad <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, max)
-#   cluster_dominante <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, 
-#                              function(x) ifelse(max(x) >= umbral_probabilidad, names(x)[which.max(x)], "Mixto"))
-#   
-#   # Limpiar nombres de los clusters
-#   tabla_probabilidad$cluster_dominante <- gsub("cluster_", "", cluster_dominante)
-#   
-#   # Mostrar en formato DT
-#   datatable(tabla_probabilidad, options = list(pageLength = 10, scrollX = TRUE))
-#   
-#   return(tabla_probabilidad)
-# }
-# 
-# # Función para generar matriz de cluster dominante
-# generar_matriz_clusters <- function(tabla_probabilidad) {
-#   
-#   # Obtener colores dinámicos
-#   colores_clusters <- generar_colores_clusters(tabla_probabilidad)
-#   
-#   # Convertir la tabla en formato largo para la matriz visual
-#   tabla_probabilidad <- tabla_probabilidad %>%
-#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
-#   
-#   # Crear la matriz visual con ggplot
-#   matriz <- ggplot(tabla_probabilidad, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
-#     geom_tile(color = "white") +
-#     scale_fill_manual(values = colores_clusters) +
-#     labs(title = "Matriz de Cluster Dominante por Día y Hora",
-#          x = "Hora del Día",
-#          y = "Día de la Semana",
-#          fill = "Cluster Dominante") +
-#     theme_minimal()
-#   
-#   print(matriz)  # Mostrar el gráfico
-# }
-# 
-# # Ejemplo de uso:
-# tabla_completa_abs <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.5)
-# tabla_completa <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.6)
-# generar_matriz_clusters(tabla_completa_abs)
-# generar_matriz_clusters(tabla_completa)
-
-```
-
-```{r}
-# library(ggplot2)
-# library(dplyr)
-# library(tidyr)
-# library(DT)
-# 
-# # Función para generar tabla completa con cluster dominante considerando un umbral de probabilidad
-# generar_tabla_probabilidad_completa <- function(datos_probabilidad, umbral_probabilidad = 0.7) {
-#   
-#   # Agrupar por día de la semana y hora, calculando el promedio de probabilidad por cluster
-#   tabla_probabilidad <- datos_probabilidad %>%
-#     group_by(dia_sem, hora) %>%
-#     summarise(across(starts_with("cluster_"), mean, na.rm = TRUE)) %>%
-#     ungroup()
-#   
-#   # Determinar el cluster dominante con el umbral definido
-#   max_probabilidad <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, max)
-#   cluster_dominante <- apply(tabla_probabilidad %>% select(starts_with("cluster_")), 1, 
-#                              function(x) ifelse(max(x) >= umbral_probabilidad, names(x)[which.max(x)], "Mixto"))
-#   
-#   # Limpiar nombres de los clusters
-#   tabla_probabilidad$cluster_dominante <- gsub("cluster_", "", cluster_dominante)
-#   
-#   # Mostrar en formato DT
-#   datatable(tabla_probabilidad, options = list(pageLength = 10, scrollX = TRUE))
-#   
-#   return(tabla_probabilidad)
-# }
-# 
-# # Función para generar matriz de cluster dominante
-# generar_matriz_clusters <- function(tabla_probabilidad) {
-#   
-#   # Convertir la tabla en formato largo para la matriz visual
-#   tabla_probabilidad <- tabla_probabilidad %>%
-#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
-#   
-#   # Obtener colores con la función definida previamente
-#   colores_clusters <- obtener_colores_clusters(tabla_probabilidad)
-#   
-#   # Agregar el color gris para "Mixto"
-#   colores_clusters["Mixto"] <- "gray"
-#   
-#   # Crear la matriz visual con ggplot
-#   matriz <- ggplot(tabla_probabilidad, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
-#     geom_tile(color = "white") +
-#     scale_fill_manual(values = colores_clusters) +
-#     labs(title = "Matriz de Cluster Dominante por Día y Hora",
-#          x = "Hora del Día",
-#          y = "Día de la Semana",
-#          fill = "Cluster Dominante") +
-#     theme_minimal()
-#   
-#   print(matriz)  # Mostrar el gráfico
-# }
-# 
-# # Ejemplo de uso:
-# tabla_completa_abs <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.5)
-# tabla_completa <- generar_tabla_probabilidad_completa(datos_con_probabilidad, umbral_probabilidad = 0.6)
-# generar_matriz_clusters(tabla_completa_abs)
-# generar_matriz_clusters(tabla_completa)
-
-```
 
 ```{r}
 library(ggplot2)
@@ -2299,36 +1848,6 @@ generar_matriz_clusters_editadas <- function(tabla_franjas_expandidas) {
 # Llamar la función con la tabla de franjas editadas
 generar_matriz_clusters_editadas(tabla_franjas_expandidas)
 
-```
-
-metodo anterior con 5 colores
-
-```{r}
-
-
-# # Función para generar la matriz de clusters basada en franjas editadas
-# generar_matriz_clusters_editadas <- function(tabla_franjas_expandidas) {
-# 
-#   # Convertir la tabla en formato largo para la matriz visual
-#   tabla_franjas_expandidas <- tabla_franjas_expandidas %>%
-#     mutate(dia_sem = factor(dia_sem, levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")))
-# 
-#   # Crear la matriz visual con ggplot
-#   matriz <- ggplot(tabla_franjas_expandidas, aes(x = factor(hora, levels = 0:23), y = dia_sem, fill = cluster_dominante)) +
-#     geom_tile(color = "white") +
-#     scale_fill_manual(values = c("1" = "red", "2" = "blue", "3" = "green", "4" = "purple", "5" = "orange", "Mixto" = "gray")) +
-#     labs(title = "Matriz de Clusters Basada en Franjas Horarias Editadas",
-#          subtitle = "Clusters asignados manualmente a cada combinación de día y hora",
-#          x = "Hora del Día",
-#          y = "Día de la Semana",
-#          fill = "Cluster Editado") +
-#     theme_minimal()
-# 
-#   print(matriz)  # Mostrar el gráfico
-# }
-# 
-# # Llamar la función con la tabla de franjas editadas
-# generar_matriz_clusters_editadas(tabla_franjas_expandidas)
 ```
 
 verificacion de correcta edicion de franjas horarias (evitar faltantes, duplicados, etc)
@@ -2636,11 +2155,6 @@ datatable(datos_lb)
 ### Construcción
 
 modelos de LBen de consumo absoluto
-
-```{r}
-
-
-```
 
 ```{r}
 

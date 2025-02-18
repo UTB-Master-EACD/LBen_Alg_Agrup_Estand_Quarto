@@ -20,11 +20,15 @@ number-sections: true
 
 ## Resumen
 
-Descripcion del analisis
+Este documento implementa una metodología para la construcción de líneas base de consumo energético absoluto utilizando algoritmos de agrupación estándar.
+
+Se identifican patrones de consumo mediante técnicas de clustering, agrupando períodos con comportamientos similares. Posteriormente, se validan estadísticamente los grupos obtenidos para garantizar su independencia y representatividad. Se incluye la posibilidad de editar manualmente los grupos en caso de que los resultados iniciales no sean óptimos, permitiendo refinamientos en la segmentación antes de proceder con los análisis finales.
+
+Finalmente, se compara el modelo basado en clusters con el modelo tradicional de promedio global, evaluando su desempeño en términos de error. La justificación de esta metodología radica en que los modelos de línea base por cluster reflejan mejor la variabilidad operativa del consumo, reduciendo los sesgos introducidos por la heterogeneidad de los datos y proporcionando estimaciones más precisas para el cálculo de ahorros y sobreconsumos.
 
 ## Carga de Librerias
 
-Listado de librerias utilizadas
+Se cargan las librerías necesarias para el procesamiento, análisis y visualización de datos.
 
 ```{r}
 library(readr)  # Para importar y exportar archivos de texto y CSV de manera eficiente
@@ -40,7 +44,12 @@ library(openxlsx)  # Para leer y escribir archivos Excel (.xlsx) sin depender de
 library(car)  # Para análisis estadístico, incluye la prueba de Levene para homogeneidad de varianzas
 library(ggpubr)  # Para facilitar la creación de gráficos y pruebas estadísticas como Shapiro-Wilk
 library(FSA)  # Para análisis de datos biológicos y la prueba de Dunn para comparaciones múltiples
-library(tidyverse)  # Conjunto de paquetes para manipulación, visualización y modelado de datos
+
+# Conjunto de paquetes para manipulación, visualización y modelado de datos
+library(tidyverse)
+library(tidyr)
+
+
 library(e1071)  # Para algoritmos de machine learning, incluyendo SVM y Naïve Bayes
 library(moments)  # Para calcular asimetría (skewness) y curtosis (kurtosis)
 library(patchwork)  # Para combinar múltiples gráficos de ggplot2 en una sola visualización
@@ -50,7 +59,7 @@ library(scales)  # Para manipulación de escalas y colores en gráficos ggplot2
 
 ## Cargar Datos Iniciales
 
-En nuestro caso el formato csv - sep ";" es el que se está generando desde las fuentes primarias de información
+En nuestro caso el formato csv - sep ";" es el que se está generando desde las fuentes primarias de información (editar en caso de utilizar otro dataset de prueba).
 
 ```{r}
   
@@ -79,9 +88,9 @@ datos_preparados <- cargar_datos(ruta)
 datatable( head (datos_preparados, 10) )
 ```
 
-## Descripcion del dataset Datos Iniciales
+## Descripción del dataset Datos Iniciales
 
-Verificacion de la disponibilidad y formato de las variables requeridas para el analisis
+Se realiza una exploración inicial del dataset de consumo energético para comprender su estructura y características principales. Este paso es fundamental para identificar posibles valores atípicos, datos faltantes y verificar la calidad de la información.
 
 ```{r}
 describir_datos <- function(datos) {
@@ -104,7 +113,7 @@ describir_datos(datos_preparados)
 
 Eliminación de datos faltantes
 
-Debido a que no se utilizaran algoritmos que requieran conservar la forma de la serie de datos, es posible eliminar los registros faltantes.
+Se eliminan los registros con datos faltantes, ya que no se emplearán algoritmos que requieran la continuidad de la serie temporal. Dado que el análisis se basa en agrupación por patrones de consumo y no en modelos secuenciales, la eliminación de estos valores no afecta la estructura del estudio. Esta limpieza mejora la calidad del dataset y evita sesgos en el proceso de clustering.
 
 ```{r}
 limpiar_datos <- function(datos) {
@@ -121,13 +130,15 @@ describir_datos(datos_limpiados)
 # datatable( head(datos_limpiados) )
 ```
 
-## Analisis Exploratorio de Datos Iniciales
+## Análisis Exploratorio de Datos Iniciales
 
-### Graficos de distribicion de frecuencia
+### Gráficos de distribición de frecuencia
 
-Para la metodologia es deseable pero no es necesario que los datos esten balanceados, se requiere la presencia de la mayor cantidad de escenarios posibles (todos los dias y todas las horas), para darle sentido a los grupos que se obtendran mas adelante, la influencia del mes puede ser significativa en caso de que existan patrones de largo plazo (estaciones climaticas, operaciones temporales, entre otros), en los casos de estudio tenemos menos de un año de datos.
+Se analizan las distribuciones de consumo energético para evaluar la representatividad de los datos. Aunque no es estrictamente necesario que los datos estén balanceados, es fundamental contar con la mayor cantidad de escenarios posibles (todas las horas y todos los días de la seman) para garantizar que los grupos obtenidos en el clustering tengan sentido operativo.
 
-```{r}
+Además, se examina la influencia del mes en el consumo, ya que pueden existir patrones de largo plazo asociados a factores estacionales o a variaciones operativas temporales. En los casos de estudio analizados, la disponibilidad de datos es menor a un año.
+
+```{r, fig.width=10, fig.height=4}
 library(ggplot2)
 library(patchwork)
 
@@ -263,9 +274,11 @@ datatable( analisis_consumo )
 
 (Analisis del comportamiento del consumo, se identifican 2 zonas alta y baja carga)
 
-Distribución General
+Este paso está analizando la distribución de la variable "CONSUMO" .
 
-```{r}
+Se busca visualizar patrones en el comportamiento del consumo.
+
+```{r, fig.width=10, fig.height=4}
 library(ggplot2)
 library(patchwork)
 
@@ -312,7 +325,9 @@ graficar_distribucion_dia(datos_limpiados, "lunes")
 
 Comparativo Día vs día
 
-```{r}
+El objetivo es visualizar variaciones o similitudes en los patrones de consumo en los comportamientos energéticos entre diferentes días (editable).
+
+```{r, fig.width=10, fig.height=4}
 library(ggplot2)
 library(dplyr)
 library(patchwork)
@@ -349,14 +364,16 @@ graficar_dos_dias <- function(datos, dia1, dia2) {
   return(layout)
 }
 
-# Ejemplo de uso: Comparar consumo entre martes y viernes
+# Comparar consumo entre martes y viernes
 graficar_dos_dias(datos_limpiados, "lunes", "domingo")
 
 ```
 
 ### Distribucion horaria de la variable consumo
 
-```{r}
+Este paso analiza cómo varía el consumo energético a lo largo de las horas del día (distribución horaria), y luego compara estas distribuciones entre diferentes días. El objetivo es identificar si existen patrones recurrentes en el consumo durante ciertas horas y si estos patrones se mantienen consistentes entre días.
+
+```{r, fig.width=10, fig.height=4}
 library(ggplot2)
 library(dplyr)
 library(patchwork)
@@ -413,7 +430,9 @@ graficar_general_vs_dia(datos_limpiados, "lunes")
 
 ```
 
-```{r}
+Día vs día (editable)
+
+```{r, fig.width=10, fig.height=4}
 graficar_dia_vs_dia <- function(datos, dia1, dia2) {
   # Lista de días válidos
   dias_validos <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
@@ -465,9 +484,13 @@ graficar_dia_vs_dia(datos_limpiados, "martes", "viernes")
 
 ```
 
-### Identificación estadistica y eliminación de atipicos
+### Identificación estadística y eliminación de atípicos
 
-Inicialmente no es recomendable borrar los atipicos hasta asegurarnos de que no sean parte de un patron de comportamiento, en este caso dichos valores corresponden a datos puntuales que no representan patrones de comportamiento.
+Este paso se enfoca en identificar valores atípicos en los datos (valores extremos que se desvían significativamente del resto de los datos). Se resalta que, antes de eliminarlos, es importante asegurarse de que no forman parte de un patrón recurrente. En este caso, los valores atípicos identificados son considerados errores puntuales que no reflejan patrones de comportamiento relevantes, por lo que se procede a su eliminación para evitar distorsionar el análisis.
+
+::: callout-important
+Nota: el tema de analisis de los atipicos creo que no lo voy a utilizar en la metodologia, voy a saltar hasta la eliminacion de los mismos; corresponden a menos del 2% no representan un patron de comportamiento.
+:::
 
 ```{r}
 # Cargar librerías necesarias
@@ -498,7 +521,7 @@ graficar_boxplot <- function(datos, width = 2, height = 2) {
 resultados_boxplot <- graficar_boxplot(datos_limpiados)
 ```
 
-### Segmentación de outliers
+### Extracción de átipicos (outliers)
 
 ```{r}
 
@@ -671,7 +694,7 @@ analizar_outliers_horarios_dias_distribucion(datos_limpiados)
 
 ```
 
-### Distribucion de outliers por rango
+### Distribución de outliers por rango
 
 ```{r}
 # Función ajustada para analizar outliers de un rango específico
@@ -790,13 +813,9 @@ datos_limpios_NA_OUT <- eliminar_outliers(datos_limpiados)
 analisis_consumo_NA_OUT <- analisis_exploratorio_consumo(datos_limpios_NA_OUT)
 
 
-
-
-
-
 ```
 
-### Comparativo descripcion de datos
+### Comparativo descripción de datos
 
 Con outliers
 

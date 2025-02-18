@@ -2435,3 +2435,5 @@ graficar_analisis_residuos(datos_lb)
 ```
 
 ## Observaciones Generales
+
+Incluir pruebas

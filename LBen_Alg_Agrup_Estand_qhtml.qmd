@@ -2350,6 +2350,10 @@ print(estadisticas_residuos)
 
 residuos
 
+::: callout-important
+Estas ultimas graficas no seran necesarias
+:::
+
 ```{r}
 
 library(ggplot2)

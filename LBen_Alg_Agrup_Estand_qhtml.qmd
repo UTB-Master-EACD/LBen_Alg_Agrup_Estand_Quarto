@@ -2333,7 +2333,7 @@ Es importante destacar que, a pesar de los ajustes, los grupos deben seguir sien
 
 Finalmente, el ajuste de las franjas horarias tiene como propósito optimizar la clasificación de los periodos de consumo, garantizando que estos se alineen con la operación real del sistema y que las pruebas estadísticas sean aplicadas con una base más representativa y consistente.
 
-## **Modelos de Línea Base (LB) - Preparación de Datos para Consumo Absoluto**
+## Modelos de Línea Base (LB) - Preparación de Datos para Consumo Absoluto
 
 En esta fase, preparamos los datos para la construcción de los modelos de Línea Base (LB) de consumo absoluto. Este paso es fundamental para establecer una referencia sólida que permita evaluar el desempeño energético y cuantificar ahorros o sobreconsumos con base en los datos históricos.
 
@@ -2381,7 +2381,7 @@ datatable(datos_lb)
 
 ```
 
-### **Modelos de Línea Base (LB) - Comparación de Enfoques**
+### Modelos de Línea Base (LB) - Comparación de Enfoques
 
 En esta fase, presentamos tres modelos de Línea Base (LB) que servirán como referencia para el análisis de consumo energético. Cada modelo utiliza un enfoque diferente para calcular la referencia de consumo promedio, permitiendo evaluar la variabilidad y precisión en función de la segmentación aplicada.
 
@@ -2693,7 +2693,7 @@ print(estadisticas_residuos)
 
 ```
 
-## **Observaciones Generales sobre la Metodología**
+## Observaciones Generales sobre la Metodología
 
 La metodología aplicada permite construir líneas base de consumo energético a partir de diferentes niveles de agregación, proporcionando un marco flexible para evaluar el desempeño energético de un edificio o proceso. A lo largo del análisis, se han implementado modelos basados en:
 

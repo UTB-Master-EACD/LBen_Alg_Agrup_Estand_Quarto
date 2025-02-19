@@ -1870,7 +1870,7 @@ cat("\n--------------------------------------------\n",
     "--------------------------------------------\n")
 ```
 
-tabla franjas umbral
+Aquí está la tabla de franjas con un umbral (editable), del 60%, donde si ningún cluster supera ese valor, se asigna la categoría "Mixto".
 
 ```{r}
 #Generar la tabla
@@ -1878,9 +1878,23 @@ tabla_franjas_umbral <- consolidar_franjas_horarias(tabla_completa_umbral)
 datatable(tabla_franjas_umbral, options = list(pageLength = 20, scrollX = TRUE))
 ```
 
-#### Interpretación de grupos
+#### **Interpretación de los Grupos de Consumo**
 
-Observaciones generales de analisis exploratorio e interpretacion de grupos
+Con el apoyo de las **tablas de franjas horarias**, hemos identificado **dos clusters principales**:
+
+1.  **Cluster de Baja Carga:**
+
+    -   Se presenta principalmente en las **horas nocturnas y tempranas de la mañana** (**0:00 - 8:00**) y en la noche (**20:00 - 23:00**).
+
+    -   Es el patrón predominante durante los **sábados**, salvo un pequeño periodo de alta carga al **mediodía**.
+
+2.  **Cluster de Alta Carga:**
+
+    -   Ocurre en la **franja diurna** entre **9:00 - 19:00**.
+
+    -   Se observa de manera constante de **lunes a viernes** y también el **domingo**.
+
+    -   Durante el **sábado**, este patrón solo aparece alrededor del **mediodía**, pero el resto del día se comporta como baja carga.
 
 ## Edición o Ajuste de Grupos (si aplica)
 
@@ -1903,6 +1917,26 @@ Después de analizar y visualizar la matriz de franjas horarias, es útil poder 
     -   Se actualizan los datos y se pueden volver a visualizar las franjas horarias con los ajustes aplicados.
 
 Este proceso permite mayor flexibilidad para realizar cambios manuales y asegurarse de que la segmentación sea representativa del comportamiento real del consumo energético.
+
+::: callout-important
+Tener en cuenta:
+
+El archivo descargado es tabla_franjas, abrirlo, editarlo y guardarlo como tabla_franjas_editado
+
+![](www/editarfranjas.png)
+
+Solo es necesario re escribir en la columna de franjas horarias, antes de hacerlo ajustar su formato a texto para poder escribir el simbolo "-" y excel no lo interprete como formulas.
+
+Puede eliminar la fila del cluster que desee eliminar o dejar vacía su celda de franja_horaria.
+
+Revisar que las franjas estén correctamente asignadas (sin solapamientos u horas faltantes).
+
+![](www/tablafranjasedit.png)
+:::
+
+::: callout-note
+Si no se realiza ninguna edición, se cargará la tabla original de franjas sin modificaciones (Tabla Franjas), manteniendo los valores y clasificaciones iniciales.
+:::
 
 ```{r}
 # Cargar la tabla editada
@@ -1932,7 +1966,9 @@ datatable(tabla_franjas_editado, options = list(pageLength = 20, scrollX = TRUE)
 
 ```
 
-tabla completa franjas editadas
+**Carga de la Tabla Completa de Franjas Editada**
+
+Se carga la versión editada de la tabla de franjas, asegurando que los cambios realizados sean aplicados correctamente.
 
 ```{r}
 
@@ -1973,7 +2009,9 @@ datatable(tabla_franjas_expandidas)
 
 ```
 
-### matriz franjas editadas
+### **Generación de la Matriz de Franjas Editada**
+
+Se construye la matriz visual de franjas horarias para analizar la distribución de los clusters en los diferentes periodos del día y la semana.
 
 ```{r}
 
@@ -2007,7 +2045,7 @@ generar_matriz_clusters_editadas(tabla_franjas_expandidas)
 
 ```
 
-verificacion de correcta edicion de franjas horarias (evitar faltantes, duplicados, etc)
+Se revisa que no haya valores faltantes, duplicados o inconsistencias en la clasificación de franjas.
 
 ```{r}
 #validar la edicion de las franjas horarias (ya con la tabla expandida pero antes de fusionar con datos clusterizados)
@@ -2054,11 +2092,11 @@ validar_franjas_editadas <- function(tabla_franjas_expandidas) {
 validar_franjas_editadas(tabla_franjas_expandidas)
 ```
 
-### Validación de grupos editado
+### Validación de los Grupos con las Franjas Editadas
 
-validacion de los grupos con las franjas editadas
+Se verifica si la clasificación por franjas sigue una estructura coherente con los patrones de consumo observados.
 
-Preparacion datos editados para validacion estadistica y exploracion
+Se estructuran los datos para la aplicación de pruebas estadísticas y el análisis exploratorio.
 
 ```{r}
 # union de tabla_franjas_expandidas con datos_clusterizados para formar datos_clusterizados_editado
@@ -2073,7 +2111,9 @@ datos_clusterizados_editado <- datos_clusterizados %>%
 datatable(datos_clusterizados_editado)
 ```
 
-Prueba de Normalidad y de Homocedasticidad a grupos editados
+**Prueba de Normalidad y de Homocedasticidad en los Grupos Editados**
+
+Se evalúa si los datos siguen una distribución normal y si presentan varianzas homogéneas entre los grupos.
 
 ```{r}
 #   Validacion de CLuster Editado (Metodos Estadisticos) #####
@@ -2121,7 +2161,9 @@ resultado_editado <- validar_supuestos_clusters_editado(datos_clusterizados_edit
 cat(resultado_editado)
 ```
 
-Prueba de Anova o de Kruskal para validacion de grupos editados
+**Prueba de ANOVA o de Kruskal para Validación de Grupos Editados**
+
+Se aplica ANOVA si los datos cumplen con normalidad y homocedasticidad; en caso contrario, se usa la prueba no paramétrica de Kruskal-Wallis.
 
 ```{r}
 # Prueba de Anova o de Kruskal para validacion de cluster editado#####
@@ -2175,7 +2217,9 @@ print(resultado_prueba_editado$Resultados)
 cat(resultado_prueba_editado$Interpretación)
 ```
 
-Prueba Posthoc Dunn grupos editados
+Prueba Posthoc de Dunn para Comparaciones entre Grupos Editados
+
+Si se rechaza la hipótesis nula en ANOVA/Kruskal, se utiliza la prueba de Dunn para identificar diferencias significativas entre los grupos.
 
 ```{r}
 # Prueba Posthoc Dunn #####
@@ -2213,9 +2257,13 @@ resultado_posthoc_editado <- realizar_prueba_posthoc_editado(datos_clusterizados
 datatable((resultado_posthoc_editado$Interpretación))
 ```
 
-### Exploración e interpretación de grupos editado
+### Exploración e Interpretación de los Grupos Editados
 
-boxplot
+Se analiza el significado de las franjas identificadas en relación con los patrones de consumo energético.
+
+Visualización con Boxplot
+
+Se generan diagramas de caja para comparar la distribución de consumo en los diferentes grupos editados.
 
 ```{r, fig.width=10, fig.height=4}
 
@@ -2244,7 +2292,9 @@ graficar_boxplot_clusters_editado(datos_clusterizados_editado, alpha_puntos = 0.
 
 ```
 
-Estadisticos boxplots editados
+**Cálculo de Estadísticos Descriptivos para los Boxplots Editados**
+
+Se obtienen medidas como la mediana, los cuartiles y la dispersión para cada grupo.
 
 ```{r}
 library(dplyr)
@@ -2273,15 +2323,37 @@ calcular_estadisticas_clusters_editado <- function(datos_clusterizados_editado) 
   datatable(resumen_clusters_editado, options = list(pageLength = 5))
 }
 
-# 📌 **Ejemplo de uso**
+# 📌 **uso**
 calcular_estadisticas_clusters_editado(datos_clusterizados_editado)
 ```
 
-Observaciones generales del analisis exploratorio e interpretacion de los datos editados
+El análisis de resultados seguirá una estructura similar a la aplicada a los datos sin editar, pero ahora considerando las franjas horarias ajustadas. El objetivo principal de esta edición es mejorar la uniformidad de los grupos, asegurando una mayor correspondencia con los horarios y características del proceso operativo.
 
-## Modelos de LB
+Es importante destacar que, a pesar de los ajustes, los grupos deben seguir siendo independientes y mantener su coherencia estadística. Se busca que la segmentación refleje de manera más precisa los patrones de consumo y permita una mejor interpretación de los datos dentro del contexto del análisis energético.
 
-preparar datos para las LB de consumo absoluto.
+Finalmente, el ajuste de las franjas horarias tiene como propósito optimizar la clasificación de los periodos de consumo, garantizando que estos se alineen con la operación real del sistema y que las pruebas estadísticas sean aplicadas con una base más representativa y consistente.
+
+## **Modelos de Línea Base (LB) - Preparación de Datos para Consumo Absoluto**
+
+En esta fase, preparamos los datos para la construcción de los modelos de Línea Base (LB) de consumo absoluto. Este paso es fundamental para establecer una referencia sólida que permita evaluar el desempeño energético y cuantificar ahorros o sobreconsumos con base en los datos históricos.
+
+#### **Objetivo del Paso:**
+
+Generar indicadores de consumo promedio en distintos niveles de agregación, permitiendo una comparación estructurada entre los valores originales y los ajustados según la segmentación de franjas horarias.
+
+#### **Metodología Aplicada:**
+
+Para cada observación en el dataset, se calculan tres tipos de promedios:
+
+1.  **Promedio Total:** Representa el consumo medio de todo el conjunto de datos, proporcionando una referencia general.
+
+2.  **Promedio por Cluster:** Calcula el consumo promedio dentro de cada cluster identificado originalmente, capturando patrones de consumo específicos de los grupos detectados.
+
+3.  **Promedio por Cluster Editado:** Ajusta el cálculo del promedio con base en las franjas horarias editadas, lo que permite evaluar el impacto de la refinación de los grupos en la homogeneidad de los consumos.
+
+Esta preparación de datos es clave para la construcción de modelos más precisos y alineados con las condiciones operativas del proceso, asegurando que los clusters mantengan su independencia y coherencia en términos de consumo energético.
+
+El siguiente paso será evaluar estadísticamente estos valores y utilizarlos en la modelación de las Líneas Base.
 
 ```{r}
 
@@ -2309,9 +2381,37 @@ datatable(datos_lb)
 
 ```
 
-### Construcción
+### **Modelos de Línea Base (LB) - Comparación de Enfoques**
 
-modelos de LBen de consumo absoluto
+En esta fase, presentamos tres modelos de Línea Base (LB) que servirán como referencia para el análisis de consumo energético. Cada modelo utiliza un enfoque diferente para calcular la referencia de consumo promedio, permitiendo evaluar la variabilidad y precisión en función de la segmentación aplicada.
+
+#### **Objetivo del Paso:**
+
+Comparar los modelos de Línea Base construidos a partir de distintas metodologías de agrupación y calcular estadísticas clave que permitan evaluar la dispersión y representatividad de cada enfoque.
+
+#### **Modelos Presentados:**
+
+1.  **LB General:** Basado en el promedio total del consumo sin segmentación.
+
+2.  **LB por Cluster:** Considera los promedios de consumo dentro de cada cluster identificado originalmente.
+
+3.  **LB por Cluster Editado:** Ajusta los promedios en función de las franjas horarias editadas, buscando una mayor correspondencia con los horarios y condiciones operativas del proceso.
+
+#### **Estadísticas Calculadas:**
+
+Para cada modelo, se presentan los siguientes indicadores:
+
+-   **Mínimo y Máximo:** Valores extremos del consumo dentro del grupo.
+
+-   **Promedio:** Referencia principal utilizada como Línea Base.
+
+-   **Mediana:** Valor central que complementa la interpretación del promedio.
+
+-   **Desviación Estándar (SD):** Medida de dispersión que indica la variabilidad de los datos.
+
+-   **Rango Intercuartílico (IQR):** Evalúa la dispersión excluyendo valores extremos, ofreciendo una medida robusta de variabilidad.
+
+Estas estadísticas permiten entender mejor el impacto de la segmentación en la estabilidad y precisión del modelo de Línea Base, facilitando su aplicación en el monitoreo del consumo energético y la evaluación de ahorros o sobreconsumos.
 
 ```{r}
 
@@ -2349,9 +2449,39 @@ calcular_estadisticas_clusters(datos_clusterizados)
 calcular_estadisticas_clusters_editado(datos_clusterizados_editado)
 ```
 
-### Metricas
+### **Evaluación de Errores en los Modelos de Línea Base**
 
-tabla de errores
+En esta sección, presentamos la tabla de errores de cada modelo de Línea Base (LB) con el objetivo de comparar su precisión y estabilidad.
+
+#### **Objetivo del Paso:**
+
+Analizar las métricas de error de cada modelo para evaluar cuál ofrece una mejor representación del consumo real y cuál minimiza la variabilidad en los residuos.
+
+#### **Métricas Evaluadas:**
+
+Para cada modelo, se calculan los siguientes indicadores de error:
+
+-   **MAD (Mean Absolute Deviation):** Promedio de los valores absolutos de los residuos, mide la dispersión respecto a la referencia.
+
+-   **MAPE (Mean Absolute Percentage Error):** Error absoluto porcentual medio, útil para evaluar la precisión relativa del modelo.
+
+-   **RMSE (Root Mean Square Error):** Raíz del error cuadrático medio, otorga mayor peso a los errores grandes.
+
+-   **Desviación Estándar de los Residuos (STD_Residuos):** Evalúa la dispersión de los errores en cada modelo.
+
+-   **Bias:** Promedio de los residuos, indica si el modelo tiende a sobrestimar o subestimar el consumo.
+
+#### **Comparación de Modelos:**
+
+Se presentan los resultados para los tres modelos evaluados:
+
+1.  **Promedio Total (LB General)**
+
+2.  **Promedio por Cluster (LB Clusterizado)**
+
+3.  **Promedio por Cluster Editado (LB con Franjas Ajustadas)**
+
+Esta comparación permite identificar si el modelo con clusters editados mejora la uniformidad en la segmentación del consumo y reduce la variabilidad en los errores, ajustándose mejor a las condiciones operativas del proceso.
 
 ```{r}
 
@@ -2397,12 +2527,49 @@ calcular_metricas <- function(datos) {
 
 # Uso:
 tabla_metricas <- calcular_metricas(datos_lb)
-print(tabla_metricas)
+#print(tabla_metricas)
+
+datatable(tabla_metricas)
+
 ```
 
-grafico de rsiduos
+### **Visualización de Residuos mediante Boxplots**
 
-boxplots
+En este paso, complementamos el análisis de errores con una representación visual de la distribución de los residuos en cada modelo de Línea Base (LB).
+
+#### **Objetivo del Gráfico:**
+
+El boxplot permite evaluar:
+
+-   La dispersión de los residuos en cada modelo.
+
+-   La presencia de valores atípicos.
+
+-   Comparaciones visuales entre los modelos para identificar cuál presenta menor variabilidad y sesgo.
+
+#### **Metodología:**
+
+-   Se calculan los residuos para cada modelo de LB:
+
+    1.  **Residuo Total** (Diferencia entre el consumo real y el promedio general).
+
+    2.  **Residuo Cluster** (Diferencia entre el consumo real y el promedio del cluster).
+
+    3.  **Residuo Cluster Editado** (Diferencia entre el consumo real y el promedio del cluster con franjas ajustadas).
+
+-   Los residuos se transforman a formato largo para facilitar la comparación en un solo gráfico.
+
+-   Se genera un boxplot donde cada modelo es representado con un color distinto para facilitar la interpretación.
+
+#### **Interpretación del Boxplot:**
+
+-   Modelos con menor dispersión en los residuos sugieren una mejor estabilidad.
+
+-   Si un modelo presenta valores atípicos significativos, puede indicar inconsistencias en la agrupación o falta de representatividad.
+
+-   El modelo de "Promedio por Cluster Editado" debería mostrar una distribución más uniforme si los ajustes han mejorado la correspondencia con los horarios operativos.
+
+Este gráfico refuerza las conclusiones obtenidas en la tabla de errores, facilitando una comparación intuitiva de la efectividad de cada modelo.
 
 ```{r}
 library(ggplot2)
@@ -2445,6 +2612,46 @@ crear_boxplots_residuos(datos_lb)
 
 ```
 
+### **Tabla de Estadísticos de los Residuos**
+
+Para complementar el análisis de los modelos de Línea Base (LB) y su distribución de residuos, presentamos una tabla con estadísticas descriptivas clave.
+
+#### **Objetivo de la Tabla:**
+
+Esta tabla permite evaluar cuantitativamente la distribución de los residuos para cada modelo, ayudando a identificar cuál de ellos ofrece una mejor estimación del consumo real.
+
+#### **Metodología:**
+
+-   Se calculan los residuos para cada modelo de LB.
+
+-   Se obtienen las siguientes métricas clave:
+
+    -   **Mínimo y Máximo**: Valores extremos de los residuos.
+
+    -   **Q1 (Cuartil 1) y Q3 (Cuartil 3)**: Límite inferior y superior del rango intercuartil (IQR).
+
+    -   **Mediana**: Valor central de la distribución.
+
+    -   **IQR (Rango Intercuartil)**: Medida de dispersión entre Q1 y Q3.
+
+    -   **SD (Desviación Estándar)**: Cuantifica la variabilidad total de los residuos.
+
+    -   **Sesgo (Skewness)**: Indica si la distribución de los residuos está sesgada hacia valores positivos o negativos.
+
+    -   **Curtosis**: Mide la forma de la distribución, indicando si hay colas más pesadas o ligeras que una distribución normal.
+
+#### **Interpretación de la Tabla:**
+
+-   Un menor IQR y SD indican que los residuos están más concentrados en torno al valor esperado.
+
+-   Un sesgo cercano a 0 sugiere una distribución simétrica de los residuos, lo que es deseable.
+
+-   Una curtosis cercana a 3 indica que la distribución de los residuos es similar a una normal. Valores muy altos sugieren la presencia de valores extremos (colas pesadas).
+
+-   Comparando los modelos, podemos determinar cuál presenta una mejor distribución de residuos y validar las conclusiones obtenidas en los pasos anteriores.
+
+Esta tabla refuerza el análisis previo, proporcionando una base estadística sólida para elegir el modelo de LB más adecuado.
+
 ```{r}
 calcular_estadisticos_residuos <- function(datos_lb) {
   library(dplyr)
@@ -2486,6 +2693,24 @@ print(estadisticas_residuos)
 
 ```
 
-## Observaciones Generales
+## **Observaciones Generales sobre la Metodología**
 
-Incluir resultados de pruebas
+La metodología aplicada permite construir líneas base de consumo energético a partir de diferentes niveles de agregación, proporcionando un marco flexible para evaluar el desempeño energético de un edificio o proceso. A lo largo del análisis, se han implementado modelos basados en:
+
+1.  **Promedio General**: Representa una referencia global del consumo energético sin considerar particularidades operativas.
+
+2.  **Promedio por Cluster**: Introduce una segmentación basada en patrones de consumo, permitiendo una mejor representación de la variabilidad inherente al proceso.
+
+3.  **Promedio por Cluster Editado**: Ajusta la segmentación para mejorar la correspondencia con los horarios operativos y lograr una mayor homogeneidad dentro de cada grupo.
+
+El uso de métricas de error y análisis estadístico de los residuos ha permitido evaluar la precisión y utilidad de cada modelo. Además, los boxplots y sus respectivas tablas de estadísticos proporcionan una visión clara sobre la dispersión y distribución de los residuos, lo que facilita la selección de la línea base más adecuada.
+
+En términos generales, esta metodología permite:
+
+-   Adaptar las líneas base a la estructura operativa del proceso, mejorando la precisión en la identificación de ahorros o sobreconsumos.
+
+-   Evaluar el impacto de la segmentación en la reducción del error del modelo.
+
+-   Proporcionar un marco analítico reproducible para la validación de datos y toma de decisiones en eficiencia energética.
+
+Este análisis sienta las bases para futuras conclusiones, donde se comparará el desempeño de cada modelo y se seleccionará el más adecuado en función de criterios de error y estabilidad.

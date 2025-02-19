@@ -237,6 +237,10 @@ datatable( tablas_frecuencia$Tabla_Hora )
 
 ### Magnitudes de la variable CONSUMO
 
+Se calculan estadísticas descriptivas de la variable de estudio, incluyendo media, mediana, mínimo, máximo, desviación estándar, curtosis y asimetría.
+
+Este análisis permite entender la dispersión y distribución del consumo energético, identificar posibles valores atípicos y evaluar la variabilidad de los datos, lo que es clave para interpretar los resultados del clustering y la construcción de la línea base.
+
 ```{r}
 library(dplyr)
 library(moments)  # Para curtosis y asimetría
@@ -278,9 +282,12 @@ Este paso está analizando la distribución de la variable "CONSUMO" .
 
 Se busca visualizar patrones en el comportamiento del consumo.
 
+Gráfica de consumo promedio general vs día específico (editable)
+
 ```{r, fig.width=10, fig.height=4}
 library(ggplot2)
 library(patchwork)
+library(dplyr)  # Asegura que filter() funcione correctamente
 
 graficar_distribucion_dia <- function(datos, dia_especifico) {
   # Verificar que el día ingresado es válido
@@ -306,20 +313,13 @@ graficar_distribucion_dia <- function(datos, dia_especifico) {
     theme(plot.title = element_text(size = 14, hjust = 0.5))
 
   # Unir ambos gráficos en una fila
-  #layout <- p_general + p_dia + plot_layout(ncol = 2)
-  layout <- p_general + plot_layout(ncol = 1)
+  layout <- p_general + p_dia + plot_layout(ncol = 2)  # Corregido para incluir ambos gráficos
   
   return(layout)
 }
 
-# Ejemplo de uso: Graficar el consumo general y para los martes
+# Graficar el consumo general y para un día específico
 graficar_distribucion_dia(datos_limpiados, "lunes")
-# graficar_distribucion_dia(datos_limpiados, "martes")
-# graficar_distribucion_dia(datos_limpiados, "miércoles")
-# graficar_distribucion_dia(datos_limpiados, "jueves")
-# graficar_distribucion_dia(datos_limpiados, "viernes")
-# graficar_distribucion_dia(datos_limpiados, "sábado")
-# graficar_distribucion_dia(datos_limpiados, "domingo")
 
 ```
 
@@ -489,7 +489,7 @@ graficar_dia_vs_dia(datos_limpiados, "martes", "viernes")
 Este paso se enfoca en identificar valores atípicos en los datos (valores extremos que se desvían significativamente del resto de los datos). Se resalta que, antes de eliminarlos, es importante asegurarse de que no forman parte de un patrón recurrente. En este caso, los valores atípicos identificados son considerados errores puntuales que no reflejan patrones de comportamiento relevantes, por lo que se procede a su eliminación para evitar distorsionar el análisis.
 
 ::: callout-important
-Nota: el tema de analisis de los atipicos creo que no lo voy a utilizar en la metodologia, voy a saltar hasta la eliminacion de los mismos; corresponden a menos del 2% no representan un patron de comportamiento.
+Nota: el tema de analisis de los atipicos no lo voy a utilizar en la metodologia, voy a saltar hasta la eliminacion de los mismos; corresponden a menos del 2% no representan un patron de comportamiento.
 :::
 
 ```{r}
@@ -516,12 +516,14 @@ graficar_boxplot <- function(datos, width = 2, height = 2) {
 
 ```
 
-```{r, fig.width=2, fig.height=3}
+```{r, fig.width=3, fig.height=4}
 # Llamar la función con tamaño ajustable
 resultados_boxplot <- graficar_boxplot(datos_limpiados)
 ```
 
 ### Extracción de átipicos (outliers)
+
+Análisis del comportamiento de los valores átipicos
 
 ```{r}
 
@@ -783,6 +785,8 @@ analizar_outliers_rango(datos_limpiados, rango = "inferior")
 
 ### Eliminacion de outliers
 
+Este paso garantiza que el análisis de agrupación no se vea afectado por valores extremos que podrían distorsionar la identificación de grupos y la construcción de la línea base.
+
 ```{r}
 # Eliminacion de outliers (si aplica) #####
 eliminar_outliers <- function(datos, columna = "consumo") {
@@ -831,7 +835,11 @@ sin outliers
 datatable( analisis_consumo_NA_OUT )
 ```
 
-## Preparación para Identificacion de Grupos (Normalización)
+## Preparación para Identificación de Grupos (Normalización)
+
+Se normalizan los datos de consumo energético para asegurar que todas las variables utilizadas en el clustering tengan una escala comparable.
+
+La normalización es un paso clave, ya que los algoritmos de agrupación son sensibles a las magnitudes de las variables. Se emplea la estandarización (Z-score) para centrar los datos en media cero y desviación estándar uno, permitiendo una mejor identificación de patrones sin sesgo por diferencias de escala.
 
 ```{r}
 # Normalizar los datos de consumo (Z score mantiene la distribucion de los datos) #####
@@ -865,9 +873,17 @@ datatable( head(datos_normalizados) )
 
 ```
 
-## Calculo del numero Optimo de Grupos
+## Cálculo del Número Óptimo de Grupos
 
-Estadisticos de calculo
+Se determina el número óptimo de clusters utilizando tres métodos:
+
+-   **Método del Codo (Elbow Method)**: Evalúa la suma de los errores cuadráticos dentro de los grupos (*WSS*). Se busca el punto donde la reducción en la varianza comienza a estabilizarse, indicando un número adecuado de clusters.
+
+-   **Coeficiente de Silhouette**: Mide la cohesión y separación de los grupos. Valores más altos indican una mejor estructura de agrupación.
+
+-   **Estadística Gap (Gap Statistic)**: Compara la dispersión intra-cluster con datos generados aleatoriamente para determinar si la estructura de los clusters es significativa.
+
+Se presentan gráficos y tablas con los valores de *K* (número de clusters) junto con sus respectivas métricas (*WSS*, *Silhouette* y *Gap*). Estos resultados permiten seleccionar el número de grupos que mejor representa los patrones de consumo energético.
 
 ```{r}
 
@@ -942,7 +958,7 @@ calcular_k_optimo_tabla <- function(dataset, metodo, k_max = 10) {
     stop("Método no reconocido. Usa 'codo', 'silhouette' o 'gap_stat'")
   }
   
-  DT::datatable(resultados, options = list(pageLength = 5)) # No usar print()
+  DT::datatable(resultados, options = list(pageLength = 5)) 
 }
 
 ```
@@ -983,7 +999,9 @@ calcular_k_optimo_grafico(datos_normalizados, metodo = "gap_stat")
 calcular_k_optimo_tabla(datos_normalizados, metodo = "gap_stat")
 ```
 
-Numero optimo de grupos
+### Consolidación del Número Óptimo de Clusters
+
+Se presenta una tabla con los valores óptimos de *K* recomendados por cada método (*Elbow, Silhouette y Gap Statistic*). Luego, se genera un ranking que muestra la frecuencia de cada número de clusters recomendado, permitiendo identificar la opción más consistente.
 
 ```{r}
 
@@ -1032,9 +1050,19 @@ resultado$Ranking |> DT::datatable()
 
 ```
 
-## Creación de Grupos
+## Creación de Grupos - Clusterización
 
-### Clusterización
+Para segmentar los datos, se utiliza el algoritmo **K-Means**, empleando el número óptimo de clusters determinado previamente
+
+Aunque existen otros métodos como **DBSCAN** y **HClust**, se opta por K-Means debido a:
+
+1.  **Eficiencia computacional**: Es rápido y escalable, adecuado para datasets grandes.
+
+2.  **Reproducibilidad**: Su implementación es sencilla y genera resultados consistentes.
+
+3.  **Interpretabilidad**: Produce clusters de forma compacta y fácilmente analizables.
+
+Sin embargo, si se detectaran problemas como clusters mal definidos o sensibilidad a valores atípicos, podría considerarse una validación adicional con **DBSCAN** y **HClust** para verificar la estabilidad de la segmentación.
 
 ```{r}
 # Función para aplicar clustering#####
@@ -1088,9 +1116,15 @@ datos_clusterizados <- aplicar_clustering(datos_normalizados, num_clusters = 2, 
 datatable(datos_clusterizados)
 ```
 
-### Validación de Grupos
+### Validación de Grupos - Pruebas de Normalidad y Homocedasticidad
 
-Pruebas de normalidad y de homocedasticidad
+Una vez obtenidos los clusters, es necesario evaluar si existen diferencias estadísticas significativas entre ellos. Para esto, realizamos:
+
+1.  **Pruebas de Normalidad (Shapiro-Wilk)**: Determinan si la distribución del consumo dentro de cada grupo sigue una distribución normal. Esto es relevante porque muchas pruebas estadísticas requieren normalidad para su correcta aplicación.
+
+2.  **Prueba de Homocedasticidad (Levene)**: Evalúa si la varianza entre los grupos es homogénea. La homocedasticidad es un supuesto clave en pruebas estadísticas como ANOVA, que se empleará posteriormente para validar la segmentación.
+
+Estas pruebas permiten confirmar si los clusters obtenidos representan segmentos diferenciados en el consumo energético y si los datos cumplen con los supuestos necesarios para aplicar pruebas adicionales de significancia.
 
 ```{r}
 #   Validacion de CLuster (Metodos Estadisticos) #####
@@ -1137,6 +1171,23 @@ validar_supuestos_clusters <- function(datos_clusterizados) {
 resultado <- validar_supuestos_clusters(datos_clusterizados)
 cat(resultado)
 ```
+
+**Análisis de las Pruebas de Validación**
+
+1.  **Normalidad por Cluster**:
+
+    -   Cluster 1: No Normal
+
+    -   Cluster 2: No Normal\
+        → Ambos grupos presentan distribuciones no normales, lo que indica que pruebas paramétricas como ANOVA no son adecuadas.
+
+2.  **Homocedasticidad (Prueba de Levene)**:
+
+    -   Las varianzas entre los clusters son significativamente diferentes.\
+        → Esto refuerza la necesidad de utilizar pruebas no paramétricas para comparar los grupos.
+
+**Recomendación**:\
+Dado que no se cumple la normalidad ni la homogeneidad de varianzas, se recomienda utilizar la **prueba de Kruskal-Wallis**, que permite comparar medianas entre múltiples grupos sin asumir una distribución normal.
 
 Pruebas de Anova o de Kruskal-Wallis
 
@@ -1192,6 +1243,11 @@ print(resultado_prueba$Resultados)
 cat(resultado_prueba$Interpretación)
 ```
 
+La prueba de Kruskal-Wallis indica diferencias significativas en el consumo entre los clusters (p \< 0.05). Esto confirma que los grupos identificados presentan distribuciones distintas, lo que valida el proceso de clustering.
+
+**Recomendación**:\
+Para identificar qué clusters difieren entre sí, se recomienda realizar una prueba post hoc, como **Dunn**, con corrección de p-valor (ej. Bonferroni o Holm).
+
 Prueba Posthoc Dunn
 
 ```{r}
@@ -1228,6 +1284,8 @@ resultado_posthoc <- realizar_prueba_posthoc(datos_clusterizados)
 
 datatable((resultado_posthoc$Interpretación))
 ```
+
+El ajuste de p-valor no cambia la significancia del resultado, lo que confirma que los grupos presentan diferencias estadísticamente significativas en su consumo. Esto respalda la validez del proceso de clusterización y su aplicación en la construcción de líneas base diferenciadas.
 
 ### Exploración e interpretación de grupos
 
@@ -1269,7 +1327,7 @@ obtener_colores_clusters <- function(datos_clusterizados) {
 }
 ```
 
-#### Series
+#### **Serie temporal coloreada por cluster**: Permite visualizar cómo se distribuyen los grupos a lo largo del tiempo y si existen patrones temporales en el consumo.
 
 ```{r, fig.width=10, fig.height=4}
 # --- Función para Graficar Series Temporales ---
@@ -1305,7 +1363,7 @@ graficar_serie_temporal(datos_clusterizados, n_datos = 7*24)
 
 ```
 
-#### boxplots
+#### **Boxplots por cluster**: Muestra la distribución estadística de cada grupo, facilitando la comparación de medianas y dispersión.
 
 ```{r, fig.width=10, fig.height=4}
 
@@ -1367,11 +1425,31 @@ calcular_estadisticas_clusters(datos_clusterizados)
 
 ```
 
-Incluir observaciones del analisis exploratorio hasta este punto
+-   Se observa que los grupos presentan distribuciones distintas en términos de consumo.
 
-#### Probabilidad de Pertenencia
+-   La mediana y la variabilidad de cada cluster reflejan diferencias en los patrones de operación.
 
-Incluir explicacion del metodo y la necesidad para la creacion de las matrices absolutas y probables, paso previo para decidir si editar o no los grupos
+-   La separación entre los boxplots valida que la clusterización fue efectiva en segmentar el consumo en grupos diferenciados.
+
+#### **Probabilidad de Pertenencia**
+
+Este paso evalúa la certeza con la que cada observación pertenece a su cluster asignado, utilizando **clustering difuso (Fuzzy C-Means)**.
+
+#### **Método**
+
+-   Se aplica **Fuzzy C-Means** sobre el consumo normalizado.
+
+-   Cada observación obtiene una probabilidad de pertenencia a cada cluster en lugar de una asignación estricta.
+
+#### **Utilidad**
+
+-   Se generan dos matrices:
+
+    -   **Matriz absoluta**: Asignaciones originales de los clusters.
+
+    -   **Matriz probable**: Contiene la probabilidad de pertenencia de cada observación a cada cluster.
+
+-   Permite identificar puntos con baja certeza, facilitando la decisión de **editar los grupos** para mejorar la segmentación.
 
 ```{r}
 # Probabilidad de pertenencia #####
@@ -1407,7 +1485,13 @@ datos_con_probabilidad <- calcular_probabilidad_fuzzy(datos_clusterizados, num_c
 datatable(datos_con_probabilidad)
 ```
 
-grafico densidad de distribucion de consumo
+Gráfico de Densidad de Distribución del Consumo
+
+-   Refuerza la interpretación de la **probabilidad de pertenencia**, mostrando qué tan diferenciados o solapados están los clusters.
+
+-   Ayuda a evaluar si la segmentación es clara o si se requiere **ajuste en los grupos**.
+
+-   Facilita la detección de valores de consumo donde los clusters pierden distinción, apoyando posibles decisiones de edición.
 
 ```{r}
 library(ggplot2)
@@ -1451,7 +1535,13 @@ graficar_densidad_clusters(datos_clusterizados)
 
 ```
 
-Grafico densidad de distribucion por horas
+Gráfico de Densidad de Distribución por Horas
+
+-   Permite identificar **patrones horarios** en cada grupo, diferenciando franjas de alto y bajo consumo.
+
+-   Facilita la detección de **traslapes entre clusters** en ciertas horas del día.
+
+-   Ayuda a validar si la segmentación refleja correctamente la operación real del sistema.
 
 ```{r}
 library(ggplot2)
@@ -1577,9 +1667,31 @@ resultados_probabilidad[["martes"]]$grafico
 
 ```
 
-#### 
+Este análisis permite observar la evolución de la probabilidad de pertenencia a cada cluster a lo largo del día, facilitando la identificación de patrones horarios específicos.
 
-Tabla y matriz de franjas horarias
+#### **Utilidad**
+
+-   Permite analizar **cómo cambia la probabilidad de pertenencia a lo largo del día** para cada cluster.
+
+-   Facilita la detección de **horas de transición** en las que los grupos se superponen, lo que puede indicar la necesidad de ajustes en la clusterización.
+
+-   Ayuda a validar si los clusters reflejan comportamientos diferenciados en el tiempo, asegurando que la segmentación sea representativa de la operación real.
+
+El gráfico de líneas muestra la evolución de la probabilidad de pertenencia por hora, mientras que la tabla interactiva permite explorar los valores específicos para cada día de la semana.
+
+### **Tabla y Matriz de Franjas Horarias por Cluster**
+
+Este análisis permite visualizar cómo varían los clusters a lo largo de la semana y en diferentes horas del día.
+
+#### **Utilidad**
+
+-   **Identificación de patrones horarios:** La tabla muestra el cluster dominante en cada franja horaria, permitiendo detectar momentos del día con comportamientos energéticos diferenciados.
+
+-   **Flexibilidad con umbrales:** Se puede modificar el umbral de probabilidad para ajustar la clasificación, permitiendo un análisis más estricto o más flexible de las transiciones entre clusters.
+
+-   **Visualización de transiciones:** La matriz de colores resalta franjas horarias homogéneas y zonas de transición donde la clasificación no es clara, lo que sugiere la posible presencia de patrones mixtos.
+
+La tabla muestra los clusters dominantes en cada hora y día, mientras que la matriz ofrece una representación visual clara de la distribución de los patrones de consumo.
 
 ```{r}
 library(ggplot2)
@@ -1676,7 +1788,19 @@ tabla_completa_umbral <- generar_tabla_probabilidad_completa(datos_con_probabili
 generar_matriz_clusters(tabla_completa_umbral)
 ```
 
-Tabla franjas
+### **Tabla de Franjas Horarias por Cluster**
+
+Esta tabla muestra el cluster dominante en cada franja horaria para cada día de la semana, basada en la probabilidad de pertenencia calculada.
+
+#### **Utilidad de la Tabla**
+
+-   **Identificación de tendencias:** Permite ver qué cluster domina en cada día y hora.
+
+-   **Análisis de estabilidad:** Ayuda a evaluar si ciertos horarios tienen una clasificación clara o si presentan un comportamiento mixto.
+
+-   **Optimización de consumo:** Se puede utilizar para ajustar estrategias de eficiencia energética basadas en los patrones de consumo detectados.
+
+La clasificación puede ajustarse según un **umbral de probabilidad**, lo que permite mayor flexibilidad en la segmentación de los clusters.
 
 ```{r}
 # Función para consolidar las franjas horarias por cluster y día #####
@@ -1760,11 +1884,25 @@ Observaciones generales de analisis exploratorio e interpretacion de grupos
 
 ## Edición o Ajuste de Grupos (si aplica)
 
-### Carga de Datos Editados
+### **Carga y Descarga de Archivos de Franjas Horarias**
 
-describir la accion de descarga, edicion, carga y nueva ejecucion de la metodologia.
+Después de analizar y visualizar la matriz de franjas horarias, es útil poder **descargar** los resultados para su revisión y posterior edición. Luego, si se requieren ajustes, podemos **cargar un archivo editado** para actualizar los clusters según las modificaciones realizadas.
 
-tabla franjas editadas
+#### **Flujo del proceso**
+
+1.  **Generación y descarga del archivo de franjas horarias**
+
+    -   Se exporta la tabla de franjas en formato CSV o Excel.
+
+    -   Esto permite que los usuarios revisen y editen manualmente los clusters dominantes.
+
+2.  **Carga del archivo editado**
+
+    -   Se permite la carga de una versión modificada del archivo.
+
+    -   Se actualizan los datos y se pueden volver a visualizar las franjas horarias con los ajustes aplicados.
+
+Este proceso permite mayor flexibilidad para realizar cambios manuales y asegurarse de que la segmentación sea representativa del comportamiento real del consumo energético.
 
 ```{r}
 # Cargar la tabla editada
@@ -2345,115 +2483,6 @@ calcular_estadisticos_residuos <- function(datos_lb) {
 # Uso:
 estadisticas_residuos <- calcular_estadisticos_residuos(datos_lb)
 print(estadisticas_residuos)
-
-```
-
-residuos
-
-::: callout-important
-Estas ultimas graficas no seran necesarias
-:::
-
-```{r}
-
-library(ggplot2)
-
-# Función para graficar el análisis de residuos (dispersión)
-graficar_residuos_dispersion <- function(datos_lb) {
-  datos_residuos <- datos_lb %>%
-    mutate(
-      residuo_total = consumo - promedio_total,
-      residuo_cluster = consumo - promedio_cluster,
-      residuo_cluster_editado = consumo - promedio_cluster_editado
-    )
-  
-  # Crear los gráficos de dispersión
-  g1 <- ggplot(datos_residuos, aes(x = promedio_total, y = residuo_total)) +
-    geom_point(alpha = 0.5, color = "#1b9e77") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-    ggtitle("Residuos vs. Predicción (Promedio Total)") +
-    theme_minimal()
-  
-  g2 <- ggplot(datos_residuos, aes(x = promedio_cluster, y = residuo_cluster)) +
-    geom_point(alpha = 0.5, color = "#d95f02") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-    ggtitle("Residuos vs. Predicción (Promedio por Cluster)") +
-    theme_minimal()
-  
-  g3 <- ggplot(datos_residuos, aes(x = promedio_cluster_editado, y = residuo_cluster_editado)) +
-    geom_point(alpha = 0.5, color = "#7570b3") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-    ggtitle("Residuos vs. Predicción (Promedio por Cluster Editado)") +
-    theme_minimal()
-  
-  return(g1 + g2 + g3)
-}
-
-# Uso:
-graficar_residuos_dispersion(datos_lb)
-
-
-
-```
-
-```{r}
-library(ggplot2)
-library(patchwork)  # Para combinar gráficos
-
-graficar_analisis_residuos <- function(datos) {
-  # Calcular residuos
-  datos <- datos %>%
-    mutate(
-      residuo_total = consumo - promedio_total,
-      residuo_cluster = consumo - promedio_cluster,
-      residuo_cluster_editado = consumo - promedio_cluster_editado
-    )
-  
-  # Gráfico de residuos vs. valores predichos
-  p1 <- ggplot(datos, aes(x = promedio_total, y = residuo_total)) +
-    geom_point(alpha = 0.5, color = "blue") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuos vs Promedio Total", x = "Predicción (Promedio Total)", y = "Residuos") +
-    theme_minimal()
-  
-  p2 <- ggplot(datos, aes(x = promedio_cluster, y = residuo_cluster)) +
-    geom_point(alpha = 0.5, color = "green") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuos vs Promedio por Cluster", x = "Predicción (Promedio Cluster)", y = "Residuos") +
-    theme_minimal()
-  
-  p3 <- ggplot(datos, aes(x = promedio_cluster_editado, y = residuo_cluster_editado)) +
-    geom_point(alpha = 0.5, color = "purple") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuos vs Promedio Cluster Editado", x = "Predicción (Promedio Cluster Editado)", y = "Residuos") +
-    theme_minimal()
-  
-  # Gráfico de residuos vs. valores reales
-  p4 <- ggplot(datos, aes(x = consumo, y = residuo_total)) +
-    geom_point(alpha = 0.5, color = "blue") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuos vs Consumo Real (Total)", x = "Consumo Real", y = "Residuos") +
-    theme_minimal()
-  
-  p5 <- ggplot(datos, aes(x = consumo, y = residuo_cluster)) +
-    geom_point(alpha = 0.5, color = "green") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuos vs Consumo Real (Cluster)", x = "Consumo Real", y = "Residuos") +
-    theme_minimal()
-  
-  p6 <- ggplot(datos, aes(x = consumo, y = residuo_cluster_editado)) +
-    geom_point(alpha = 0.5, color = "purple") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuos vs Consumo Real (Cluster Editado)", x = "Consumo Real", y = "Residuos") +
-    theme_minimal()
-
-  # Combinar gráficos
-  p_final <- (p1 + p2 + p3) / (p4 + p5 + p6)
-  return(p_final)
-}
-
-# Uso:
-graficar_analisis_residuos(datos_lb)
 
 ```
 
